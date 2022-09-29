@@ -46,8 +46,8 @@ executor:
             str(tmpdir),
             "clone",
             "-b",
-            "devel",
-            "https://github.com/fepitre/qubes-builderv2",
+            "main",
+            "https://github.com/QubesOS/qubes-builderv2",
         ]
     )
 

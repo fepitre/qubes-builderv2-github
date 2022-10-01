@@ -50,6 +50,7 @@ templates:
       options:
         - standard
         - firmware
+      timeout: 7200
   - whonix-gateway-16:
       dist: bullseye
       flavor: whonix-gateway

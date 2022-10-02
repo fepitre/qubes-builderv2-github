@@ -53,6 +53,7 @@ from qubesbuilder.log import init_logging
 from qubesbuilder.component import ComponentError
 from qubesbuilder.plugins import PluginError
 from qubesbuilder.plugins.template import TEMPLATE_VERSION
+from qubesbuilder.pluginmanager import PluginManager
 
 PROJECT_PATH = Path(__file__).resolve().parent
 
@@ -101,6 +102,7 @@ class BaseAutoAction:
         self.builder_conf = builder_conf or self.builder_dir / "builder.yml"
         self.state_dir = Path(state_dir).resolve()
         self.config = Config(self.builder_conf)
+        self.manager = PluginManager(self.config.get_plugins_dirs())
         self.timeout = 21600
         self.qubes_release = self.config.get("qubes-release")
         self.commit_sha = commit_sha
@@ -138,19 +140,19 @@ class BaseAutoAction:
     def display_head_info(args):
         pass
 
-    def make_with_log(self, func, *args):
+    def make_with_log(self, func, *args, **kwargs):
         if self.local_log_file:
-            return self.make_with_log_local(func, *args)
+            return self.make_with_log_local(func, *args, **kwargs)
         else:
-            return self.make_with_log_qrexec(func, *args)
+            return self.make_with_log_qrexec(func, *args, **kwargs)
 
-    def make_with_log_local(self, func, *args):
+    def make_with_log_local(self, func, *args, **kwargs):
         log_fh = logging.FileHandler(self.local_log_file)
         log.addHandler(log_fh)
         log.debug("> starting build with log")
         self.display_head_info(args)
         try:
-            func(*args)
+            func(*args, **kwargs)
             log.debug("> done")
         except PluginError as e:
             raise AutoActionError(e.args, log_file=self.local_log_file) from e
@@ -158,7 +160,7 @@ class BaseAutoAction:
             log.removeHandler(log_fh)
         return self.local_log_file
 
-    def make_with_log_qrexec(self, func, *args):
+    def make_with_log_qrexec(self, func, *args, **kwargs):
         with subprocess.Popen(
             ["qrexec-client-vm", "dom0", "qubesbuilder.BuildLog"],
             text=True,
@@ -172,7 +174,7 @@ class BaseAutoAction:
             log.debug("> starting build with log")
             self.display_head_info(args)
             try:
-                func(*args)
+                func(*args, **kwargs)
                 log.debug("> done")
             except PluginError as e:
                 p.stdin.close()
@@ -234,6 +236,7 @@ class AutoAction(BaseAutoAction):
             _component_stage(
                 stage_name=stage,
                 config=self.config,
+                manager=self.manager,
                 components=self.components,
                 distributions=[dist],
             )
@@ -241,6 +244,7 @@ class AutoAction(BaseAutoAction):
     def publish_and_upload(self, repository_publish: str, distributions: List):
         _publish(
             config=self.config,
+            manager=self.manager,
             repository_publish=repository_publish,
             components=self.components,
             distributions=distributions,
@@ -350,12 +354,20 @@ class AutoAction(BaseAutoAction):
 
     def build(self):
         self.make_with_log(
-            _component_stage, self.config, self.components, self.distributions, "fetch"
+            _component_stage,
+            config=self.config,
+            manager=self.manager,
+            components=self.components,
+            distributions=self.distributions,
+            stage_name="fetch",
         )
 
         for dist in self.distributions:
             release_status = _check_release_status_for_component(
-                config=self.config, components=self.components, distributions=[dist]
+                config=self.config,
+                manager=self.manager,
+                components=self.components,
+                distributions=[dist],
             )
 
             if (
@@ -376,14 +388,14 @@ class AutoAction(BaseAutoAction):
 
                     build_log_file = self.make_with_log(
                         self.run_stages,
-                        dist,
-                        ["prep", "build"],
+                        dist=dist,
+                        stages=["prep", "build"],
                     )
 
                     self.make_with_log(
                         self.run_stages,
-                        dist,
-                        ["sign", "publish", "upload"],
+                        dist=dist,
+                        stages=["sign", "publish", "upload"],
                     )
 
                     self.notify_upload_status(dist, build_log_file)
@@ -425,7 +437,9 @@ class AutoAction(BaseAutoAction):
         for dist in self.distributions:
             try:
                 upload_log_file = self.make_with_log(
-                    self.publish_and_upload, self.repository_publish, [dist]
+                    self.publish_and_upload,
+                    repository_publish=self.repository_publish,
+                    distributions=[dist],
                 )
                 self.notify_upload_status(dist, upload_log_file)
             except AutoActionError as autobuild_exc:
@@ -485,6 +499,7 @@ class AutoActionTemplate(BaseAutoAction):
             _template_stage(
                 stage_name=stage,
                 config=self.config,
+                manager=self.manager,
                 templates=self.templates,
                 template_timestamp=self.template_timestamp,
             )
@@ -492,6 +507,7 @@ class AutoActionTemplate(BaseAutoAction):
     def publish_and_upload(self, repository_publish: str):
         _publish(
             config=self.config,
+            manager=self.manager,
             repository_publish=repository_publish,
             templates=self.templates,
             components=[],
@@ -610,7 +626,7 @@ class AutoActionTemplate(BaseAutoAction):
                 return
 
         release_status = _check_release_status_for_template(
-            config=self.config, templates=self.templates
+            config=self.config, manager=self.manager, templates=self.templates
         )
 
         if (
@@ -624,12 +640,12 @@ class AutoActionTemplate(BaseAutoAction):
 
                 build_log_file = self.make_with_log(
                     self.run_stages,
-                    ["prep", "build"],
+                    stages=["prep", "build"],
                 )
 
                 self.make_with_log(
                     self.run_stages,
-                    ["sign", "publish", "upload"],
+                    stages=["sign", "publish", "upload"],
                 )
 
                 self.notify_upload_status(build_log_file)
@@ -670,7 +686,7 @@ class AutoActionTemplate(BaseAutoAction):
         try:
             upload_log_file = self.make_with_log(
                 self.publish_and_upload,
-                self.repository_publish,
+                repository_publish=self.repository_publish,
             )
             self.notify_upload_status(upload_log_file)
         except AutoActionError as autobuild_exc:

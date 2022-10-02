@@ -244,7 +244,7 @@ class NotifyIssueCli:
                 message_template.replace("@COMPONENT@", component)
                 .replace("@RELEASE_NAME@", release)
                 .replace("@VERSION@", version)
-                .replace("@MIN_AGE_DAY", str(self.min_age_days))
+                .replace("@MIN_AGE_DAYS@", str(self.min_age_days))
             )
 
             if message_template_kwargs is not None:

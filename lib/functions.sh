@@ -16,6 +16,11 @@ tmpdir=$(mktemp -d)
 # setup cleanup
 trap 'rm -rf $tmpdir' EXIT
 
+# ensure mkmetalink is in PATH, it may be ~/.local/bin
+if ! command -v mkmetalink && $HOME/.local/bin/mkmetalink; then
+    export PATH="$PATH:$HOME/.local/bin"
+fi
+
 ###
 ### Common functions for qubes-builder-github scripts
 ###

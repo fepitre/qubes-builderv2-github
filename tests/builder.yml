@@ -95,3 +95,9 @@ repository-publish:
 components:
   - app-linux-split-gpg:
       branch: v2.0.60
+  - input-proxy:
+      url: https://github.com/QubesOS/qubes-app-linux-input-proxy
+      branch: v1.0.27
+  - input-proxy-clone:
+      url: https://github.com/QubesOS/qubes-app-linux-input-proxy
+      branch: v1.0.28

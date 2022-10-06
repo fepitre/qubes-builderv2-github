@@ -49,6 +49,7 @@ from qubesbuilder.cli.cli_repository import (
     _check_release_status_for_template,
 )
 from qubesbuilder.config import Config
+from qubesbuilder.exc import ConfigError
 from qubesbuilder.log import init_logging
 from qubesbuilder.component import ComponentError
 from qubesbuilder.plugins import PluginError
@@ -87,21 +88,24 @@ class AutoActionTimeout(Exception):
     pass
 
 
+class CommitMismatchError(AutoActionError):
+    pass
+
+
 class BaseAutoAction:
     def __init__(
         self,
         builder_dir,
         state_dir,
-        builder_conf=None,
+        config: Config,
         commit_sha=None,
         repository_publish=None,
         local_log_file=None,
         dry_run=False,
     ):
         self.builder_dir = Path(builder_dir).resolve()
-        self.builder_conf = builder_conf or self.builder_dir / "builder.yml"
         self.state_dir = Path(state_dir).resolve()
-        self.config = Config(self.builder_conf)
+        self.config = config
         self.manager = PluginManager(self.config.get_plugins_dirs())
         self.timeout = 21600
         self.qubes_release = self.config.get("qubes-release")
@@ -199,8 +203,9 @@ class AutoAction(BaseAutoAction):
     def __init__(
         self,
         builder_dir,
-        builder_conf,
-        component_name,
+        config,
+        component,
+        distributions,
         state_dir,
         commit_sha,
         repository_publish,
@@ -208,18 +213,15 @@ class AutoAction(BaseAutoAction):
     ):
         super().__init__(
             builder_dir=builder_dir,
-            builder_conf=builder_conf,
+            config=config,
             state_dir=state_dir,
             commit_sha=commit_sha,
             repository_publish=repository_publish,
             local_log_file=local_log_file,
         )
 
-        self.components = self.config.get_components([component_name])
-        self.distributions = self.config.get_distributions()
-
-        if not self.components:
-            raise AutoActionError(f"No such component '{component_name}'.")
+        self.component = component
+        self.distributions = distributions
 
         self.repository_publish = repository_publish or self.config.get(
             "repository-publish", {}
@@ -227,7 +229,7 @@ class AutoAction(BaseAutoAction):
         if not self.repository_publish:
             raise AutoActionError(f"No repository defined for component publication.")
 
-        self.timeout = self.components[0].timeout
+        self.timeout = self.component.timeout
 
         self.built_for_dist = []
 
@@ -237,7 +239,7 @@ class AutoAction(BaseAutoAction):
                 stage_name=stage,
                 config=self.config,
                 manager=self.manager,
-                components=self.components,
+                components=[self.component],
                 distributions=[dist],
             )
 
@@ -246,12 +248,13 @@ class AutoAction(BaseAutoAction):
             config=self.config,
             manager=self.manager,
             repository_publish=repository_publish,
-            components=self.components,
+            components=[self.component],
             distributions=distributions,
             templates=[],
         )
         _upload(
             config=self.config,
+            manager=self.manager,
             repository_publish=repository_publish,
             distributions=distributions,
             templates=[],
@@ -280,8 +283,8 @@ class AutoAction(BaseAutoAction):
         notify_issues_cmd += [
             "build",
             self.qubes_release,
-            str(self.components[0].source_dir),
-            self.components[0].name,
+            str(self.component.source_dir),
+            self.component.name,
             dist.distribution,
             status,
         ]
@@ -289,7 +292,7 @@ class AutoAction(BaseAutoAction):
         try:
             subprocess.run(notify_issues_cmd, env=self.env)
         except subprocess.CalledProcessError as e:
-            msg = f"{self.components[0].name}:{dist}: Failed to notify GitHub: {str(e)}"
+            msg = f"{self.component.name}:{dist}: Failed to notify GitHub: {str(e)}"
             log.error(msg)
 
     def notify_upload_status(self, dist, log_file=None, additional_info=None):
@@ -307,23 +310,21 @@ class AutoAction(BaseAutoAction):
         if additional_info:
             notify_issues_cmd += [f"--additional-info={str(additional_info)}"]
 
-        component = self.components[0]
-
         state_file = (
             self.state_dir
-            / f"{self.qubes_release}-{component.name}-{dist.package_set}-{dist.name}-{self.repository_publish}"
+            / f"{self.qubes_release}-{self.component.name}-{dist.package_set}-{dist.name}-{self.repository_publish}"
             # type: ignore
         )
         stable_state_file = (
             self.state_dir
-            / f"{self.qubes_release}-{component.name}-{dist.package_set}-{dist.name}-current"
+            / f"{self.qubes_release}-{self.component.name}-{dist.package_set}-{dist.name}-current"
             # type: ignore
         )
         notify_issues_cmd += [
             "upload",
             self.qubes_release,
-            str(component.source_dir),
-            component.name,
+            str(self.component.source_dir),
+            self.component.name,
             dist.distribution,
             str(self.repository_publish),
             str(state_file),
@@ -333,19 +334,17 @@ class AutoAction(BaseAutoAction):
         try:
             subprocess.run(notify_issues_cmd, env=self.env)
         except subprocess.CalledProcessError as e:
-            msg = f"{component.name}:{dist}: Failed to notify GitHub: {str(e)}"
+            msg = f"{self.component.name}:{dist}: Failed to notify GitHub: {str(e)}"
             log.error(msg)
 
     def display_head_info(self, args):
         log.debug(f">> args:")
         log.debug(f">>   {args}")
         log.debug(f">> component:")
-        log.debug(f">>   {self.components[0]}")
+        log.debug(f">>   {self.component}")
         try:
-            log.debug(
-                f">>     commit-hash: {self.components[0].get_source_commit_hash()}"
-            )
-            log.debug(f">>     source-hash: {self.components[0].get_source_hash()}")
+            log.debug(f">>     commit-hash: {self.component.get_source_commit_hash()}")
+            log.debug(f">>     source-hash: {self.component.get_source_hash()}")
         except ComponentError:
             # we may have not yet source (like calling fetch stage)
             pass
@@ -357,7 +356,7 @@ class AutoAction(BaseAutoAction):
             _component_stage,
             config=self.config,
             manager=self.manager,
-            components=self.components,
+            components=[self.component],
             distributions=self.distributions,
             stage_name="fetch",
         )
@@ -366,16 +365,15 @@ class AutoAction(BaseAutoAction):
             release_status = _check_release_status_for_component(
                 config=self.config,
                 manager=self.manager,
-                components=self.components,
+                components=[self.component],
                 distributions=[dist],
             )
-
             if (
-                release_status.get(self.components[0].name, {})
+                release_status.get(self.component.name, {})
                 .get(dist.distribution, {})
                 .get("status", None)
                 == "not released"
-                and release_status.get(self.components[0].name, {})
+                and release_status.get(self.component.name, {})
                 .get(dist.distribution, {})
                 .get("tag", None)
                 != "no version tag"
@@ -429,9 +427,9 @@ class AutoAction(BaseAutoAction):
             )
 
     def upload(self):
-        actual_commit_sha = self.components[0].get_source_commit_hash()
+        actual_commit_sha = self.component.get_source_commit_hash()
         if self.commit_sha != actual_commit_sha:
-            raise AutoActionError(
+            raise CommitMismatchError(
                 f"Source have changed in the meantime (current: {actual_commit_sha})"
             )
         for dist in self.distributions:
@@ -463,7 +461,7 @@ class AutoActionTemplate(BaseAutoAction):
     def __init__(
         self,
         builder_dir,
-        builder_conf,
+        config,
         template_name,
         template_timestamp,
         state_dir,
@@ -473,7 +471,7 @@ class AutoActionTemplate(BaseAutoAction):
     ):
         super().__init__(
             builder_dir=builder_dir,
-            builder_conf=builder_conf,
+            config=config,
             state_dir=state_dir,
             commit_sha=commit_sha,
             repository_publish=repository_publish,
@@ -779,79 +777,76 @@ def main():
     else:
         local_log_file = None
 
-    if args.command in ("build-component", "upload-component"):
-        cli = AutoAction(
-            builder_dir=args.builder_dir,
-            builder_conf=args.builder_conf,
-            component_name=args.component_name,
-            state_dir=args.state_dir,
-            commit_sha=commit_sha,
-            repository_publish=repository_publish,
-            local_log_file=local_log_file,
-        )
-        supported_distributions = [
-            d.distribution for d in cli.config.get_distributions()
-        ]
-        supported_components = [c.name for c in cli.config.get_components()]
+    cli_list: List[BaseAutoAction] = []
 
-        # check if requested component name exists
-        if args.component_name not in supported_components:
-            return
+    config = Config(args.builder_conf)
+    if args.command in ("build-component", "upload-component"):
+        distributions = config.get_distributions()
+        try:
+            components = config.get_components([args.component_name], url_match=True)
+        except ConfigError as e:
+            raise AutoActionError(f"No such component '{args.component_name}'.") from e
 
         # maintainers checks
         if not args.no_signer_github_command_check:
             # maintainers components filtering
             allowed_components = (
-                cli.config.get("github", {})
+                config.get("github", {})
                 .get("maintainers", {})
                 .get(args.signer_fpr, {})
                 .get("components", [])
             )
-            if allowed_components == "_all_":
-                allowed_components = supported_components
-            if args.component_name not in allowed_components:
+            if allowed_components != "_all_":
+                components = [
+                    c for c in components if c.name in allowed_components
+                ]
+            if not components:
                 log.info("Cannot find any allowed components.")
                 return
 
             # maintainers distributions filtering (only supported for upload)
             if args.command == "upload-component":
                 allowed_distributions = (
-                    cli.config.get("github", {})
+                    config.get("github", {})
                     .get("maintainers", {})
                     .get(args.signer_fpr, {})
                     .get("distributions", [])
                 )
                 if allowed_distributions == "_all_":
-                    allowed_distributions = supported_distributions
+                    allowed_distributions = [d.distribution for d in distributions]
                 if args.distribution == ["all"]:
-                    args.distribution = supported_distributions
-                # we may have multiple distribution provided
-                filtered_distributions = set(args.distribution).intersection(
-                    set(allowed_distributions)
-                )
-                if not filtered_distributions:
+                    args.distribution = [d.distribution for d in distributions]
+                distributions = [
+                    d
+                    for d in distributions
+                    if d.distribution in allowed_distributions
+                    and d.distribution in args.distribution
+                ]
+                if not distributions:
                     log.info("Cannot find any allowed distributions.")
                     return
-                cli.distributions = cli.config.get_distributions(filtered_distributions)
+        for component in components:
+            cli_list.append(
+                AutoAction(
+                    builder_dir=args.builder_dir,
+                    config=config,
+                    component=component,
+                    distributions=distributions,
+                    state_dir=args.state_dir,
+                    commit_sha=commit_sha,
+                    repository_publish=repository_publish,
+                    local_log_file=local_log_file,
+                )
+            )
     elif args.command in ("build-template", "upload-template"):
-        cli = AutoActionTemplate(
-            builder_dir=args.builder_dir,
-            builder_conf=args.builder_conf,
-            template_name=args.template_name,
-            template_timestamp=template_timestamp,
-            state_dir=args.state_dir,
-            commit_sha=commit_sha,
-            repository_publish=repository_publish,
-            local_log_file=local_log_file,
-        )
-        supported_templates = [t.name for t in cli.config.get_templates()]
+        supported_templates = [t.name for t in config.get_templates()]
         # check if requested template name exists
         if args.template_name not in supported_templates:
             return
         # maintainers checks
         if not args.no_signer_github_command_check:
             allowed_templates = (
-                cli.config.get("github", {})
+                config.get("github", {})
                 .get("maintainers", {})
                 .get(args.signer_fpr, {})
                 .get("templates", [])
@@ -860,25 +855,41 @@ def main():
                 allowed_templates = supported_templates
             if args.template_name not in allowed_templates:
                 return
+        cli_list.append(
+            AutoActionTemplate(
+                builder_dir=args.builder_dir,
+                config=config,
+                template_name=args.template_name,
+                template_timestamp=template_timestamp,
+                state_dir=args.state_dir,
+                commit_sha=commit_sha,
+                repository_publish=repository_publish,
+                local_log_file=local_log_file,
+            )
+        )
     else:
         return
 
-    if cli.config.get("github", {}).get("dry-run", False):
+    if config.get("github", {}).get("dry-run", False):
         # Dry-run mode (for tests only)
         time.sleep(1)
         return
 
-    with timeout(cli.timeout):
-        try:
-            if args.command in ("build-component", "build-template"):
-                cli.build()
-            elif args.command in ("upload-component", "upload-template"):
-                cli.upload()
-            else:
-                return
-        except AutoActionTimeout as autobuild_exc:
-            cli.notify_build_status_on_timeout()
-            raise AutoActionTimeout(str(autobuild_exc))
+    for cli in cli_list:
+        with timeout(cli.timeout):
+            try:
+                if args.command in ("build-component", "build-template"):
+                    cli.build()
+                elif args.command in ("upload-component", "upload-template"):
+                    cli.upload()
+                else:
+                    return
+            except CommitMismatchError as exc:
+                # this is expected for multi-branch components, don't interrupt processing
+                log.warning(str(exc))
+            except AutoActionTimeout as autobuild_exc:
+                cli.notify_build_status_on_timeout()
+                raise AutoActionTimeout(str(autobuild_exc))
 
 
 if __name__ == "__main__":

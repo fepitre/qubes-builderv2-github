@@ -74,6 +74,53 @@ def _build_component_check(tmpdir):
     ).exists
 
 
+def test_action_build_component_multi(workdir):
+    tmpdir, env = workdir
+
+    cmd = [
+        str(PROJECT_PATH / "github-action.py"),
+        "--local-log-file",
+        f"{tmpdir}/build-component.log",
+        "--signer-fpr",
+        FEPITRE_FPR,
+        "build-component",
+        f"{tmpdir}/qubes-builderv2",
+        f"{tmpdir}/builder.yml",
+        "app-linux-input-proxy",
+    ]
+    subprocess.run(cmd, check=True, capture_output=True, env=env)
+    _build_component_check_multi(tmpdir)
+
+
+def _build_component_check_multi(tmpdir):
+    assert (
+        tmpdir
+        / f"artifacts/components/input-proxy/1.0.27-1/host-fc32/publish/rpm_spec_input-proxy.spec.publish.yml"
+    ).exists()
+    assert (
+        tmpdir
+        / f"artifacts/components/input-proxy-clone/1.0.28-1/host-fc32/publish/rpm_spec_input-proxy.spec.publish.yml"
+    ).exists()
+
+    assert (
+        tmpdir
+        / f"artifacts/components/input-proxy/1.0.27-1/vm-bullseye/publish/debian.publish.yml"
+    ).exists()
+    assert (
+        tmpdir
+        / f"artifacts/components/input-proxy-clone/1.0.28-1/vm-bullseye/publish/debian.publish.yml"
+    ).exists()
+
+    assert (
+        tmpdir
+        / f"artifacts/components/input-proxy/1.0.27-1/vm-fc36/publish/rpm_spec_input-proxy.spec.publish.yml"
+    ).exists
+    assert (
+        tmpdir
+        / f"artifacts/components/input-proxy-clone/1.0.28-1/vm-fc36/publish/rpm_spec_input-proxy.spec.publish.yml"
+    ).exists
+
+
 def test_action_upload_component(workdir):
     tmpdir, env = workdir
 
@@ -112,7 +159,7 @@ def test_action_upload_component(workdir):
         "all",
     ]
     subprocess.run(cmd, check=True, capture_output=True, env=env)
-    _upload_component_check(tmpdir)
+    _upload_component_check(tmpdir, with_input_proxy=True)
 
 
 def _fix_timestamp_repo(tmpdir):
@@ -154,16 +201,39 @@ def _fix_timestamp_repo(tmpdir):
             f.write(yaml.dump(info))
 
 
-def _upload_component_check(tmpdir):
+def _upload_component_check(tmpdir, with_input_proxy=False):
     # host-fc32
     rpms = [
         "qubes-gpg-split-dom0-2.0.60-1.fc32.src.rpm",
         "qubes-gpg-split-dom0-2.0.60-1.fc32.x86_64.rpm",
     ]
+    rpms_input_proxy = [
+        "qubes-input-proxy-@VERSION@-1.@DIST@.src.rpm",
+        "qubes-input-proxy-@VERSION@-1.@DIST@.x86_64.rpm",
+        "qubes-input-proxy-debuginfo-@VERSION@-1.@DIST@.x86_64.rpm",
+        "qubes-input-proxy-debugsource-@VERSION@-1.@DIST@.x86_64.rpm",
+        "qubes-input-proxy-receiver-@VERSION@-1.@DIST@.x86_64.rpm",
+        "qubes-input-proxy-receiver-debuginfo-@VERSION@-1.@DIST@.x86_64.rpm",
+        "qubes-input-proxy-sender-@VERSION@-1.@DIST@.x86_64.rpm",
+        "qubes-input-proxy-sender-debuginfo-@VERSION@-1.@DIST@.x86_64.rpm",
+    ]
+    rpms_testing = []
+    if with_input_proxy:
+        rpms_testing += [
+            rpm.replace("@VERSION@", "1.0.27").replace("@DIST@", "fc32")
+            for rpm in rpms_input_proxy
+        ]
+        rpms_testing += [
+            rpm.replace("@VERSION@", "1.0.28").replace("@DIST@", "fc32")
+            for rpm in rpms_input_proxy
+        ]
     for repository in ["current-testing", "security-testing", "current"]:
         repository_dir = f"file://{tmpdir}/artifacts/repository-publish/rpm/r4.2/{repository}/host/fc32"
         packages = rpm_packages_list(repository_dir)
-        assert set(rpms) == set(packages)
+        if repository == "current-testing":
+            assert set(rpms + rpms_testing) == set(packages)
+        else:
+            assert set(rpms) == set(packages)
 
     # vm-fc36
     rpms = [
@@ -173,10 +243,25 @@ def _upload_component_check(tmpdir):
         "qubes-gpg-split-debuginfo-2.0.60-1.fc36.x86_64.rpm",
         "qubes-gpg-split-debugsource-2.0.60-1.fc36.x86_64.rpm",
     ]
+    rpms_testing = []
+    if with_input_proxy:
+        rpms_testing += [
+            rpm.replace("@VERSION@", "1.0.27").replace("@DIST@", "fc36")
+            for rpm in rpms_input_proxy
+        ]
+        rpms_testing += [
+            rpm.replace("@VERSION@", "1.0.28").replace("@DIST@", "fc36")
+            for rpm in rpms_input_proxy
+        ]
     for repository in ["current-testing", "security-testing", "current"]:
         repository_dir = f"file://{tmpdir}/artifacts/repository-publish/rpm/r4.2/{repository}/vm/fc36"
         packages = rpm_packages_list(repository_dir)
-        assert set(rpms) == set(packages)
+        if repository == "current-testing":
+            assert set(rpms + rpms_testing) == set(packages)
+        elif repository == "security-testing":
+            assert set([]) == set(packages)
+        else:
+            assert set(rpms) == set(packages)
 
     # vm-bullseye
     repository_dir = tmpdir / "artifacts/repository-publish/deb/r4.2/vm"
@@ -188,6 +273,16 @@ def _upload_component_check(tmpdir):
             f"{codename}|main|amd64: qubes-gpg-split-tests 2.0.60-1+deb11u1",
             f"{codename}|main|source: qubes-gpg-split 2.0.60-1+deb11u1",
         ]
+        if "-testing" in codename and with_input_proxy:
+            # default reprepro keeps only the latest version,
+            # 1.0.27 won't be visible here
+            expected_packages += [
+                f"{codename}|main|source: qubes-input-proxy 1.0.28-1+deb11u1",
+                f"{codename}|main|amd64: qubes-input-proxy-sender 1.0.28-1+deb11u1",
+                f"{codename}|main|amd64: qubes-input-proxy-sender-dbgsym 1.0.28-1+deb11u1",
+                f"{codename}|main|amd64: qubes-input-proxy-receiver 1.0.28-1+deb11u1",
+                f"{codename}|main|amd64: qubes-input-proxy-receiver-dbgsym 1.0.28-1+deb11u1",
+            ]
         assert set(packages) == set(expected_packages)
 
 

@@ -34,7 +34,11 @@ def rpm_packages_list(repository_dir):
         base.repos.add_new_repo(
             repoid="local", conf=base.conf, baseurl=[repository_dir]
         )
-        base.fill_sack()
+        try:
+            base.fill_sack()
+        except dnf.exceptions.RepoError:
+            # no repo created at all, treat as empty
+            return []
         q = base.sack.query()
         return [str(p) + ".rpm" for p in q.available()]
 
@@ -231,6 +235,8 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
         packages = rpm_packages_list(repository_dir)
         if repository == "current-testing":
             assert set(rpms + rpms_testing) == set(packages)
+        elif repository == "security-testing":
+            assert set([]) == set(packages)
         else:
             assert set(rpms) == set(packages)
 

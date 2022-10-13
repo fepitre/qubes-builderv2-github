@@ -97,10 +97,10 @@ def fix_scripts_dir(tmpdir, logfile, env=None):
         (scripts_dir / f"rpc-services/{rpc}").write_text(content, encoding="utf-8")
 
 
-def generate_signed_upload_component_command(env, repository="current"):
+def generate_signed_upload_component_command(env, repository="current", dist="all"):
     return subprocess.run(
         [
-            f"echo Upload-component r4.2 app-linux-split-gpg c5316c91107b8930ab4dc3341bc75293139b5b84 {repository} all | gpg2 --clearsign -u {TESTUSER_FPR}"
+            f"echo Upload-component r4.2 app-linux-split-gpg c5316c91107b8930ab4dc3341bc75293139b5b84 {repository} {dist} | gpg2 --clearsign -u {TESTUSER_FPR}"
         ],
         shell=True,
         check=True,
@@ -202,7 +202,7 @@ def test_rpc_04_upload_component_command(workdir):
 
     # create signed upload command for 'security-testing' repository
     signed_command = generate_signed_upload_component_command(
-        env, repository="security-testing"
+        env, repository="security-testing", dist="vm-bullseye"
     )
     subprocess.run(
         [

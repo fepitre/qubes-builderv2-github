@@ -265,7 +265,9 @@ class AutoAction(BaseAutoAction):
             if dist.name not in self.built_for_dist:
                 self.notify_build_status(dist, "failed", additional_info="Timeout")
 
-    def notify_build_status(self, dist, status, log_file=None, additional_info=None):
+    def notify_build_status(
+        self, dist, status, stage="build", log_file=None, additional_info=None
+    ):
         notify_issues_cmd = [
             f"{str(PROJECT_PATH)}/utils/notify-issues",
             f"--days={self.config.get('min-age-days', 5)}",
@@ -281,7 +283,7 @@ class AutoAction(BaseAutoAction):
             notify_issues_cmd += [f"--additional-info={str(additional_info)}"]
 
         notify_issues_cmd += [
-            "build",
+            stage,
             self.qubes_release,
             str(self.component.source_dir),
             self.component.name,
@@ -378,6 +380,7 @@ class AutoAction(BaseAutoAction):
                 .get("tag", None)
                 != "no version tag"
             ):
+                stage = "build"
                 try:
                     self.notify_build_status(
                         dist,
@@ -390,6 +393,7 @@ class AutoAction(BaseAutoAction):
                         stages=["prep", "build"],
                     )
 
+                    stage = "upload"
                     self.make_with_log(
                         self.run_stages,
                         dist=dist,
@@ -404,6 +408,7 @@ class AutoAction(BaseAutoAction):
                     self.notify_build_status(
                         dist,
                         "failed",
+                        stage=stage,
                         log_file=autobuild_exc.log_file,
                         additional_info=autobuild_exc.args,
                     )
@@ -442,7 +447,7 @@ class AutoAction(BaseAutoAction):
                 self.notify_upload_status(dist, upload_log_file)
             except AutoActionError as autobuild_exc:
                 self.notify_build_status(
-                    dist, "failed", log_file=autobuild_exc.log_file
+                    dist, "failed", stage="upload", log_file=autobuild_exc.log_file
                 )
                 pass
             except TimeoutError as timeout_exc:
@@ -521,7 +526,9 @@ class AutoActionTemplate(BaseAutoAction):
     def notify_build_status_on_timeout(self):
         self.notify_build_status("failed", additional_info="Timeout")
 
-    def notify_build_status(self, status, log_file=None, additional_info=None):
+    def notify_build_status(
+        self, status, stage="build", log_file=None, additional_info=None
+    ):
         notify_issues_cmd = [
             f"{str(PROJECT_PATH)}/utils/notify-issues",
             f"--days={self.config.get('min-age-days', 5)}",
@@ -540,7 +547,7 @@ class AutoActionTemplate(BaseAutoAction):
         package_name = f"qubes-template-{template.name}-{TEMPLATE_VERSION}-{self.template_timestamp}"
 
         notify_issues_cmd += [
-            "build",
+            stage,
             self.qubes_release,
             str(self.builder_dir),
             package_name,
@@ -631,6 +638,7 @@ class AutoActionTemplate(BaseAutoAction):
             release_status.get(self.templates[0].name, {}).get("status", None)
             == "not released"
         ):
+            stage = "build"
             try:
                 self.notify_build_status(
                     "building",
@@ -641,6 +649,7 @@ class AutoActionTemplate(BaseAutoAction):
                     stages=["prep", "build"],
                 )
 
+                stage = "upload"
                 self.make_with_log(
                     self.run_stages,
                     stages=["sign", "publish", "upload"],
@@ -649,7 +658,9 @@ class AutoActionTemplate(BaseAutoAction):
                 self.notify_upload_status(build_log_file)
 
             except AutoActionError as autobuild_exc:
-                self.notify_build_status("failed", log_file=autobuild_exc.log_file)
+                self.notify_build_status(
+                    "failed", stage=stage, log_file=autobuild_exc.log_file
+                )
                 pass
             except TimeoutError as timeout_exc:
                 raise AutoActionTimeout("Timeout reached for build!") from timeout_exc
@@ -688,7 +699,9 @@ class AutoActionTemplate(BaseAutoAction):
             )
             self.notify_upload_status(upload_log_file)
         except AutoActionError as autobuild_exc:
-            self.notify_build_status("failed", log_file=autobuild_exc.log_file)
+            self.notify_build_status(
+                "failed", stage="upload", log_file=autobuild_exc.log_file
+            )
             pass
         except TimeoutError as timeout_exc:
             raise AutoActionTimeout("Timeout reached for upload!") from timeout_exc

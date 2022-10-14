@@ -478,11 +478,11 @@ class AutoActionTemplate(BaseAutoAction):
             local_log_file=local_log_file,
         )
 
-        self.templates = self.config.get_templates([template_name])
+        try:
+            self.templates = self.config.get_templates([template_name])
+        except ConfigError as e:
+            raise AutoActionError(f"No such template '{template_name}'.") from e
         self.template_timestamp = template_timestamp
-
-        if not self.templates:
-            raise AutoActionError(f"No such template '{template_name}'.")
 
         self.repository_publish = repository_publish or self.config.get(
             "repository-publish", {}
@@ -763,6 +763,8 @@ def main():
     template_timestamp = None
     if args.command == "upload-component":
         commit_sha = args.commit_sha
+    elif args.command == "build-template":
+        template_timestamp = args.template_timestamp
     elif args.command == "upload-template":
         commit_sha = args.template_sha
         template_timestamp = commit_sha.split("-")[-1]

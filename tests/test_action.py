@@ -56,7 +56,7 @@ def test_action_build_component(workdir):
         f"{tmpdir}/builder.yml",
         "app-linux-split-gpg",
     ]
-    subprocess.run(cmd, check=True, capture_output=True, env=env)
+    subprocess.run(cmd, check=True, env=env)
     _build_component_check(tmpdir)
 
 
@@ -91,7 +91,8 @@ def test_action_build_component_multi(workdir):
         f"{tmpdir}/builder.yml",
         "app-linux-input-proxy",
     ]
-    subprocess.run(cmd, check=True, capture_output=True, env=env)
+    subprocess.run(cmd, check=True, env=env)
+
     _build_component_check_multi(tmpdir)
 
 
@@ -142,7 +143,7 @@ def test_action_upload_component(workdir):
         "--distribution",
         "vm-bullseye",
     ]
-    subprocess.run(cmd, check=True, capture_output=True, env=env)
+    subprocess.run(cmd, check=True, env=env)
 
     _fix_timestamp_repo(tmpdir)
 
@@ -161,7 +162,7 @@ def test_action_upload_component(workdir):
         "--distribution",
         "all",
     ]
-    subprocess.run(cmd, check=True, capture_output=True, env=env)
+    subprocess.run(cmd, check=True, env=env)
     _upload_component_check(tmpdir, with_input_proxy=True)
 
 
@@ -310,7 +311,7 @@ def test_action_build_template(workdir):
         "debian-11",
         timestamp,
     ]
-    subprocess.run(cmd, check=True, capture_output=True, env=env)
+    subprocess.run(cmd, check=True, env=env)
     _build_template_check(tmpdir)
 
 
@@ -339,7 +340,7 @@ def test_action_upload_template(workdir):
         f"4.1.0-{build_timestamp}",
         "templates-itl",
     ]
-    subprocess.run(cmd, check=True, capture_output=True, env=env)
+    subprocess.run(cmd, check=True, env=env)
     _upload_template_check(tmpdir)
 
 

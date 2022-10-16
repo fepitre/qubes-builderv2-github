@@ -36,6 +36,7 @@ import subprocess
 import sys
 import time
 import traceback
+from abc import abstractmethod, ABC
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List
@@ -92,7 +93,7 @@ class CommitMismatchError(AutoActionError):
     pass
 
 
-class BaseAutoAction:
+class BaseAutoAction(ABC):
     def __init__(
         self,
         builder_dir,
@@ -172,6 +173,8 @@ class BaseAutoAction:
             stderr=subprocess.PIPE,
             stdin=subprocess.PIPE,
         ) as p:
+            assert p.stdin is not None
+            assert p.stdout is not None
             qrexec_stream = logging.StreamHandler(stream=p.stdin)
 
             log.addHandler(qrexec_stream)
@@ -183,19 +186,28 @@ class BaseAutoAction:
             except PluginError as e:
                 p.stdin.close()
                 p.wait()
-                log_file = list(p.stdout)
-                log_file = log_file[0].rstrip("\n")
+                log_file_list = list(p.stdout)
+                log_file = log_file_list[0].rstrip("\n")
                 raise AutoActionError(e.args, log_file=log_file) from e
             else:
                 p.stdin.close()
                 p.wait()
-                log_file = list(p.stdout)
-                log_file = log_file[0].rstrip("\n")
+                log_file_list = list(p.stdout)
+                log_file = log_file_list[0].rstrip("\n")
             finally:
                 log.removeHandler(qrexec_stream)
             return log_file
 
-    def run(self):
+    @abstractmethod
+    def build(self):
+        pass
+
+    @abstractmethod
+    def upload(self):
+        pass
+
+    @abstractmethod
+    def notify_build_status_on_timeout(self):
         pass
 
 
@@ -518,6 +530,7 @@ class AutoActionTemplate(BaseAutoAction):
         )
         _upload(
             config=self.config,
+            manager=self.manager,
             repository_publish=repository_publish,
             templates=self.templates,
             distributions=[],

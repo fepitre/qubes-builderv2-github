@@ -106,7 +106,6 @@ def main():
     if command[0] != args.command:
         raise GithubCommandError("Wrong command file for requested command.")
 
-    release_name = None
     component_name = None
     commit_sha = None
     repository_publish = None
@@ -142,6 +141,8 @@ def main():
                 template_sha,
                 repository_publish,
             ) = command[1:]
+        else:
+            raise GithubCommandError(f"Unsupported command: {args.command}")
     except IndexError as e:
         raise GithubCommandError(f"Wrong number of args provided: {str(e)}")
 
@@ -161,10 +162,10 @@ def main():
         content = f.read().splitlines()
 
     for line in content:
-        builder_release_name, builder_dir, builder_conf = line.split("=")
+        builder_release_name, builder_dir_str, builder_conf = line.split("=")
 
-        if not Path(builder_dir).resolve().exists():
-            log.error(f"Cannot find {builder_dir}")
+        if not Path(builder_dir_str).resolve().exists():
+            log.error(f"Cannot find {builder_dir_str}")
             continue
 
         # Check if requested release name is supported by this builder instance
@@ -172,7 +173,7 @@ def main():
             log.info(f"Requested release does not match builder release.")
             continue
 
-        builder_dir = Path(builder_dir).resolve()
+        builder_dir = Path(builder_dir_str).resolve()
 
         # Update Qubes Builder
         cmd = [
@@ -197,8 +198,10 @@ def main():
 
         github_action_cmd += [str(args.command).lower(), str(builder_dir), builder_conf]
         if args.command == "Build-component":
+            assert component_name
             github_action_cmd += [component_name]
         elif args.command == "Upload-component":
+            assert component_name and commit_sha and repository_publish and distribution_name
             github_action_cmd += [
                 component_name,
                 commit_sha,
@@ -210,8 +213,10 @@ def main():
                 for d in distribution_name.split(","):
                     github_action_cmd += ["--distribution", d]
         elif args.command == "Build-template":
+            assert template_name and template_timestamp
             github_action_cmd += [template_name, template_timestamp]
         elif args.command == "Upload-template":
+            assert template_name and template_sha and repository_publish
             github_action_cmd += [
                 template_name,
                 template_sha,

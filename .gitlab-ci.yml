@@ -23,14 +23,14 @@ variables:
 test_action:
   extends: .pytest
   script:
-    - TMPDIR=~ pytest-3 -vvv --color=yes tests/test_action.py
+    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_action.py
 
 test_command:
   extends: .pytest
   script:
-    - TMPDIR=~ pytest-3 -vvv --color=yes tests/test_command.py
+    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_command.py
 
 test_rpc:
   extends: .pytest
   script:
-    - TMPDIR=~ pytest-3 -vvv --color=yes tests/test_rpc.py
+    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_rpc.py

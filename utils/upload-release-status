@@ -9,8 +9,6 @@ scripts_dir="/usr/local/lib/qubes-builder-github"
 # shellcheck source=lib/functions.sh
 . "$scripts_dir/lib/functions.sh"
 
-status_templates_dir=$(realpath "$scripts_dir")/../templates
-
 if [ -z "$HOST" ]; then
     if grep -q yum.qubes-os.org ~/.ssh/config; then
         HOST=yum.qubes-os.org
@@ -27,11 +25,12 @@ fi
 ssh "$HOST" mkdir -p status
 
 check_release_status() {
+    local builder_conf="$3"
     tmp_output_component="/tmp/${2##*/}-$(hostname)-status-component.yml"
     tmp_output_template="/tmp/${2##*/}-$(hostname)-status-template.yml"
     cd "$2"
-    ./qb repository check-release-status-component > "$tmp_output_component"
-    ./qb repository check-release-status-template > "$tmp_output_template"
+    ./qb --builder-conf "$builder_conf" repository check-release-status-component > "$tmp_output_component"
+    ./qb --builder-conf "$builder_conf" repository check-release-status-template > "$tmp_output_template"
     scp "$tmp_output_component" "$tmp_output_template" "$HOST:status/"
 }
 
@@ -39,5 +38,5 @@ execute_in_each_builder check_release_status
 
 wait
 
-scp "$status_templates_dir"/status-*.html "$scripts_dir"/utils/combine-status.py "$HOST:status/"
+scp "$scripts_dir"/utils/combine-status.py "$HOST:status/"
 ssh "$HOST" status/combine-status.py --input-dir status/ --output-dir public_html/

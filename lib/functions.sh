@@ -106,8 +106,11 @@ execute_in_each_builder() {
 
     # look for a builder instance(s) for this release
     IFS="="
-    while read -r config_release_name builder_dir; do
+    while read -r config_release_name builder_dir builder_conf; do
         if ! [ -d "$builder_dir" ]; then
+            continue
+        fi
+        if ! [ -f "$builder_conf" ]; then
             continue
         fi
 
@@ -125,7 +128,7 @@ execute_in_each_builder() {
             # the output
             exec >>"${log_basename}-${config_release_name}.log" 2>&1 </dev/null
 
-            $local_cmd "$config_release_name" "$builder_dir"
+            $local_cmd "$config_release_name" "$builder_dir" "$builder_conf"
 
         ) &
 

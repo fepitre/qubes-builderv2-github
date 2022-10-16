@@ -34,3 +34,18 @@ test_rpc:
   extends: .pytest
   script:
     - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_rpc.py
+
+mypy:
+  stage: test
+  image: fedora:latest
+  tags:
+    - docker
+  before_script:
+    - sudo dnf install -y python3-mypy python3-pip python3-pathspec git
+    - sudo python3 -m pip install types-PyYAML types-python-dateutil
+    - git clone -b main https://github.com/QubesOS/qubes-builderv2
+  script:
+    - PYTHONPATH="$PWD/qubes-builderv2" MYPYPATH="$PWD/qubes-builderv2" mypy --install-types --non-interactive --junit-xml mypy.xml
+  artifacts:
+    reports:
+      junit: mypy.xml

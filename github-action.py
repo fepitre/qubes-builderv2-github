@@ -621,7 +621,7 @@ class AutoActionTemplate(BaseAutoAction):
 
     def build(self):
         timestamp_file = (
-            self.config.get_artifacts_dir()
+            self.config.artifacts_dir
             / "templates"
             / f"build_timestamp_{self.templates[0].name}"
         )
@@ -687,7 +687,7 @@ class AutoActionTemplate(BaseAutoAction):
 
     def upload(self):
         timestamp_file = (
-            self.config.get_artifacts_dir()
+            self.config.artifacts_dir
             / "templates"
             / f"build_timestamp_{self.templates[0].name}"
         )

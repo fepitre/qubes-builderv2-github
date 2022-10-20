@@ -172,7 +172,7 @@ def main():
 
         # Global minimum age days for stable.
 
-        with open(output_dir / "status.yml", "w") as fd:
+        with open(output_dir / "statusv2.yml", "w") as fd:
             fd.write(yaml.dump(status))
 
     # render HTML
@@ -180,7 +180,7 @@ def main():
     template.globals.update(color=color)
     html = template.render(status=status)
 
-    with open(output_dir / "status.html", "w") as fd:
+    with open(output_dir / "statusv2.html", "w") as fd:
         fd.write(html)
 
 

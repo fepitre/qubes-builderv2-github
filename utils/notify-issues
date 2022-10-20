@@ -363,6 +363,8 @@ class NotifyIssueCli:
             git_url=git_url, prev_commit=previous_commit, curr_commit=current_commit
         )
 
+        component = self.src_dir.name
+
         for issue in closed_issues:
             log.info(f"Adding a comment to issue #{issue}")
             if message_template_path:
@@ -372,7 +374,7 @@ class NotifyIssueCli:
                     .replace("@DIST@", self.dist.name)
                     .replace("@PACKAGE_SET@", self.dist.package_set)
                     .replace("@PACKAGE_NAME@", self.package_name)
-                    .replace("@COMPONENT@", os.environ.get("COMPONENT"))
+                    .replace("@COMPONENT@", component)
                     .replace("@REPOSITORY@", repo_type)
                     .replace("@RELEASE_NAME@", self.release_name)
                     .replace("@GIT_LOG@", shortlog)

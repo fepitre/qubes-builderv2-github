@@ -265,10 +265,11 @@ class NotifyIssueCli:
         message,
         add_labels,
         delete_labels,
+        github_repo=github_issues_repo,
     ):
 
         try:
-            github_repo = self.gi.get_repo(self.github_report_repo_name)
+            github_repo = self.gi.get_repo(github_repo)
             issue = github_repo.get_issue(issue_no)
         except GithubException as e:
             raise NotifyIssueError(str(e)) from e
@@ -475,6 +476,7 @@ class NotifyIssueCli:
                 report_message,
                 add_labels,
                 delete_labels,
+                github_repo=self.github_report_repo_name,
             )
 
 

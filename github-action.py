@@ -449,7 +449,20 @@ class AutoAction(BaseAutoAction):
             raise CommitMismatchError(
                 f"Source have changed in the meantime (current: {actual_commit_sha})"
             )
+        release_status = _check_release_status_for_component(
+            config=self.config,
+            manager=self.manager,
+            components=[self.component],
+            distributions=self.distributions,
+        )
         for dist in self.distributions:
+            if (
+                release_status.get(self.component.name, {})
+                .get(dist.distribution, {})
+                .get("status", None)
+            ) in (None, 'no packages defined'):
+                # skip not applicable distributions
+                continue
             try:
                 upload_log_file = self.make_with_log(
                     self.publish_and_upload,

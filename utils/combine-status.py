@@ -42,8 +42,8 @@ table { border-collapse: collapse; }
           <tr>
             <td>{{component}}</td><td>{{component_status["tag"]}}</td>
 {%- for repo in component_status["repo"] %}
-            <td class="{{color(repo["name"], status["min_age_days"])}}">{{repo["name"]}}</td>
-            <td class="{{color(repo["days"], status["min_age_days"])}}">{{repo["days"]}}</td>
+            <td class="{{color(repo["name"], repo["min-age-days"])}}">{{repo["name"]}}</td>
+            <td class="{{color(repo["days"], repo["min-age-days"])}}">{{repo["days"]}}</td>
 {%- endfor -%} {# repo #}
           </tr>
 {%- endfor %} {# component #}
@@ -56,8 +56,8 @@ table { border-collapse: collapse; }
           <tr>
             <td>{{template}}</td><td>{{template_status["tag"]}}</td>
 {%- for repo in template_status["repo"] %}
-            <td class="{{color(repo["name"], repo["min_age_days"])}}">{{repo["name"]}}</td>
-            <td class="{{color(repo["days"], repo["min_age_days"])}}">{{repo["days"]}}</td>
+            <td class="{{color(repo["name"], repo["min-age-days"])}}">{{repo["name"]}}</td>
+            <td class="{{color(repo["days"], repo["min-age-days"])}}">{{repo["days"]}}</td>
 {%- endfor -%}
           </tr>
 {%- endfor -%} {# template #}

@@ -26,11 +26,14 @@ ssh "$HOST" mkdir -p status
 
 check_release_status() {
     local builder_conf="$3"
-    tmp_output_component="/tmp/${2##*/}-$(hostname)-status-component.yml"
-    tmp_output_template="/tmp/${2##*/}-$(hostname)-status-template.yml"
+    local builder_name
+    builder_name="$(dirname "$builder_conf")"
+    builder_name="${builder_name##*/}"
+    tmp_output_component="/tmp/${builder_name}-$(hostname)-status-component.yml"
+    tmp_output_template="/tmp/${builder_name}-$(hostname)-status-template.yml"
     cd "$2"
-    ./qb --builder-conf "$builder_conf" repository check-release-status-component > "$tmp_output_component"
-    ./qb --builder-conf "$builder_conf" repository check-release-status-template > "$tmp_output_template"
+    ./qb --builder-conf "$builder_conf" repository check-release-status-for-component > "$tmp_output_component"
+    ./qb --builder-conf "$builder_conf" repository check-release-status-for-template > "$tmp_output_template"
     scp "$tmp_output_component" "$tmp_output_template" "$HOST:status/"
 }
 

@@ -39,6 +39,7 @@ table { border-collapse: collapse; }
       <h2>Packages for <span class="dist">{{distribution}}</span></h2>
         <table><tr><th>Component</th><th>Version</th><th>Status</th></tr>
 {%- for component, component_status in status[release]["component"][distribution].items() -%}
+{%- if component_status["status"] != "no packages defined" -%}
           <tr>
             <td>{{component}}</td><td>{{component_status["tag"]}}</td>
 {%- for repo in component_status["repo"] %}
@@ -46,6 +47,7 @@ table { border-collapse: collapse; }
             <td class="{{color(repo["days"], repo["min-age-days"])}}">{{repo["days"]}}</td>
 {%- endfor -%} {# repo #}
           </tr>
+{%- endif %} {# packages defined #}
 {%- endfor %} {# component #}
         </table>
 {%- endfor -%} {# distribution #}

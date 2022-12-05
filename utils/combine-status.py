@@ -136,7 +136,7 @@ def main():
         # component
         release_component_files = {}  # type: ignore
         for f in input_dir.glob("builder-*-status-component.yml"):
-            release = re.match(r".*builder-(.*)-.*-status-component.yml", str(f))
+            release = re.match(r".*builder-(r[0-9.]*)-.*-status-component.yml", str(f))
             if not release:
                 continue
             release_component_files.setdefault(release.group(1), [])
@@ -145,7 +145,7 @@ def main():
         # template
         release_template_files = {}  # type: ignore
         for f in input_dir.glob("builder-*-status-template.yml"):
-            release = re.match(r".*builder-(.*)-.*-status-template.yml", str(f))
+            release = re.match(r".*builder-(r[0-9.]*)-.*-status-template.yml", str(f))
             if not release:
                 continue
             release_template_files.setdefault(release.group(1), [])

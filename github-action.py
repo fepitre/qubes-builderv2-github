@@ -867,18 +867,19 @@ def main():
                     log.info("Cannot find any allowed distributions.")
                     return
         for component in components:
-            cli_list.append(
-                AutoAction(
-                    builder_dir=args.builder_dir,
-                    config=config,
-                    component=component,
-                    distributions=distributions,
-                    state_dir=args.state_dir,
-                    commit_sha=commit_sha,
-                    repository_publish=repository_publish,
-                    local_log_file=local_log_file,
+            for dist in distributions:
+                cli_list.append(
+                    AutoAction(
+                        builder_dir=args.builder_dir,
+                        config=config,
+                        component=component,
+                        distributions=[dist],
+                        state_dir=args.state_dir,
+                        commit_sha=commit_sha,
+                        repository_publish=repository_publish,
+                        local_log_file=local_log_file,
+                    )
                 )
-            )
     elif args.command in ("build-template", "upload-template"):
         supported_templates = [t.name for t in config.get_templates()]
         # check if requested template name exists

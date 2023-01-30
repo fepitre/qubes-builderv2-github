@@ -295,6 +295,18 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
 def test_action_build_template(workdir):
     tmpdir, env = workdir
 
+    # this normally is done by getting "build-component" call for
+    # builder-debian component when it gets updated; simulate it here
+    cmd = [
+        f"{tmpdir}/qubes-builderv2/qb",
+        f"--builder-conf={tmpdir}/builder.yml",
+        "-c",
+        "builder-debian",
+        "package",
+        "fetch",
+    ]
+    subprocess.run(cmd, check=True, env=env)
+
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
     with open(tmpdir / "timestamp", "w") as f:
         f.write(timestamp)

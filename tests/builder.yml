@@ -101,3 +101,9 @@ components:
   - input-proxy-clone:
       url: https://github.com/QubesOS/qubes-app-linux-input-proxy
       branch: v1.0.28
+  - builder-rpm:
+      packages: False
+      fetch-versions-only: false
+  - builder-debian:
+      packages: False
+      fetch-versions-only: false

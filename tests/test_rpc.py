@@ -248,6 +248,16 @@ def test_rpc_05_build_template_command(workdir):
     # Adapt RPC for tests
     fix_scripts_dir(tmpdir, logfile=str(tmpdir / "build-command.log"), env=env)
 
+    # fetch builder-debian, but do similarly as normally it would be done 
+    subprocess.run(
+        [
+            str(tmpdir / "qubes-builder-github/rpc-services/qubesbuilder.TriggerBuild"),
+            "builder-debian",
+        ],
+        check=True,
+        env=env,
+    )
+
     # create signed build template command
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
     with open(tmpdir / "timestamp", "w") as f:

@@ -650,7 +650,7 @@ class AutoActionTemplate(BaseAutoAction):
                 raise AutoActionError(
                     f"Failed to read or parse timestamp: {str(exc)}"
                 ) from exc
-            if template_timestamp < timestamp_existing:
+            if template_timestamp <= timestamp_existing:
                 log.info(
                     f"Newer template ({timestamp_existing.strftime('%Y%m%d%H%M')}) already built."
                 )
@@ -660,43 +660,39 @@ class AutoActionTemplate(BaseAutoAction):
             config=self.config, manager=self.manager, templates=self.templates
         )
 
-        if (
-            release_status.get(self.templates[0].name, {}).get("status", None)
-            == "not released"
-        ):
-            stage = "build"
-            try:
-                self.notify_build_status(
-                    "building",
-                )
+        stage = "build"
+        try:
+            self.notify_build_status(
+                "building",
+            )
 
-                build_log_file = self.make_with_log(
-                    self.run_stages,
-                    stages=["prep", "build"],
-                )
+            build_log_file = self.make_with_log(
+                self.run_stages,
+                stages=["prep", "build"],
+            )
 
-                stage = "upload"
-                self.make_with_log(
-                    self.run_stages,
-                    stages=["sign", "publish", "upload"],
-                )
+            stage = "upload"
+            self.make_with_log(
+                self.run_stages,
+                stages=["sign", "publish", "upload"],
+            )
 
-                self.notify_upload_status(build_log_file)
+            self.notify_upload_status(build_log_file)
 
-            except AutoActionError as autobuild_exc:
-                self.notify_build_status(
-                    "failed", stage=stage, log_file=autobuild_exc.log_file
-                )
-                pass
-            except TimeoutError as timeout_exc:
-                raise AutoActionTimeout("Timeout reached for build!") from timeout_exc
-            except Exception as exc:
-                self.notify_build_status(
-                    "failed",
-                    additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
-                )
-                log.error(str(exc))
-                pass
+        except AutoActionError as autobuild_exc:
+            self.notify_build_status(
+                "failed", stage=stage, log_file=autobuild_exc.log_file
+            )
+            pass
+        except TimeoutError as timeout_exc:
+            raise AutoActionTimeout("Timeout reached for build!") from timeout_exc
+        except Exception as exc:
+            self.notify_build_status(
+                "failed",
+                additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
+            )
+            log.error(str(exc))
+            pass
 
     def upload(self):
         timestamp_file = (

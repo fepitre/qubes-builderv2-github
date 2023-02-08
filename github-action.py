@@ -392,51 +392,52 @@ class AutoAction(BaseAutoAction):
                 .get("tag", None)
                 != "no version tag"
             ):
-                stage = "build"
-                try:
-                    self.notify_build_status(
-                        dist,
-                        "building",
-                    )
+                with timeout(self.timeout):
+                    stage = "build"
+                    try:
+                        self.notify_build_status(
+                            dist,
+                            "building",
+                        )
 
-                    build_log_file = self.make_with_log(
-                        self.run_stages,
-                        dist=dist,
-                        stages=["prep", "build"],
-                    )
+                        build_log_file = self.make_with_log(
+                            self.run_stages,
+                            dist=dist,
+                            stages=["prep", "build"],
+                        )
 
-                    stage = "upload"
-                    self.make_with_log(
-                        self.run_stages,
-                        dist=dist,
-                        stages=["sign", "publish", "upload"],
-                    )
+                        stage = "upload"
+                        self.make_with_log(
+                            self.run_stages,
+                            dist=dist,
+                            stages=["sign", "publish", "upload"],
+                        )
 
-                    self.notify_upload_status(dist, build_log_file)
+                        self.notify_upload_status(dist, build_log_file)
 
-                    self.built_for_dist.append(dist)
-                except AutoActionError as autobuild_exc:
-                    log.error(str(autobuild_exc.args))
-                    self.notify_build_status(
-                        dist,
-                        "failed",
-                        stage=stage,
-                        log_file=autobuild_exc.log_file,
-                        additional_info=autobuild_exc.args,
-                    )
-                    pass
-                except TimeoutError as timeout_exc:
-                    raise AutoActionTimeout(
-                        "Timeout reached for build!"
-                    ) from timeout_exc
-                except Exception as exc:
-                    self.notify_build_status(
-                        dist,
-                        "failed",
-                        additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
-                    )
-                    log.error(str(exc))
-                    pass
+                        self.built_for_dist.append(dist)
+                    except AutoActionError as autobuild_exc:
+                        log.error(str(autobuild_exc.args))
+                        self.notify_build_status(
+                            dist,
+                            "failed",
+                            stage=stage,
+                            log_file=autobuild_exc.log_file,
+                            additional_info=autobuild_exc.args,
+                        )
+                        pass
+                    except TimeoutError as timeout_exc:
+                        raise AutoActionTimeout(
+                            "Timeout reached for build!"
+                        ) from timeout_exc
+                    except Exception as exc:
+                        self.notify_build_status(
+                            dist,
+                            "failed",
+                            additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
+                        )
+                        log.error(str(exc))
+                        pass
 
         if not self.built_for_dist:
             log.warning(
@@ -463,28 +464,29 @@ class AutoAction(BaseAutoAction):
             ) in (None, 'no packages defined'):
                 # skip not applicable distributions
                 continue
-            try:
-                upload_log_file = self.make_with_log(
-                    self.publish_and_upload,
-                    repository_publish=self.repository_publish,
-                    distributions=[dist],
-                )
-                self.notify_upload_status(dist, upload_log_file)
-            except AutoActionError as autobuild_exc:
-                self.notify_build_status(
-                    dist, "failed", stage="upload", log_file=autobuild_exc.log_file
-                )
-                pass
-            except TimeoutError as timeout_exc:
-                raise AutoActionTimeout("Timeout reached for upload!") from timeout_exc
-            except Exception as exc:
-                self.notify_build_status(
-                    dist,
-                    "failed",
-                    additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
-                )
-                log.error(str(exc))
-                pass
+            with timeout(self.timeout):
+                try:
+                    upload_log_file = self.make_with_log(
+                        self.publish_and_upload,
+                        repository_publish=self.repository_publish,
+                        distributions=[dist],
+                    )
+                    self.notify_upload_status(dist, upload_log_file)
+                except AutoActionError as autobuild_exc:
+                    self.notify_build_status(
+                        dist, "failed", stage="upload", log_file=autobuild_exc.log_file
+                    )
+                    pass
+                except TimeoutError as timeout_exc:
+                    raise AutoActionTimeout("Timeout reached for upload!") from timeout_exc
+                except Exception as exc:
+                    self.notify_build_status(
+                        dist,
+                        "failed",
+                        additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
+                    )
+                    log.error(str(exc))
+                    pass
 
 
 class AutoActionTemplate(BaseAutoAction):
@@ -660,39 +662,40 @@ class AutoActionTemplate(BaseAutoAction):
             config=self.config, manager=self.manager, templates=self.templates
         )
 
-        stage = "build"
-        try:
-            self.notify_build_status(
-                "building",
-            )
+        with timeout(self.timeout):
+            stage = "build"
+            try:
+                self.notify_build_status(
+                    "building",
+                )
 
-            build_log_file = self.make_with_log(
-                self.run_stages,
-                stages=["prep", "build"],
-            )
+                build_log_file = self.make_with_log(
+                    self.run_stages,
+                    stages=["prep", "build"],
+                )
 
-            stage = "upload"
-            self.make_with_log(
-                self.run_stages,
-                stages=["sign", "publish", "upload"],
-            )
+                stage = "upload"
+                self.make_with_log(
+                    self.run_stages,
+                    stages=["sign", "publish", "upload"],
+                )
 
-            self.notify_upload_status(build_log_file)
+                self.notify_upload_status(build_log_file)
 
-        except AutoActionError as autobuild_exc:
-            self.notify_build_status(
-                "failed", stage=stage, log_file=autobuild_exc.log_file
-            )
-            pass
-        except TimeoutError as timeout_exc:
-            raise AutoActionTimeout("Timeout reached for build!") from timeout_exc
-        except Exception as exc:
-            self.notify_build_status(
-                "failed",
-                additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
-            )
-            log.error(str(exc))
-            pass
+            except AutoActionError as autobuild_exc:
+                self.notify_build_status(
+                    "failed", stage=stage, log_file=autobuild_exc.log_file
+                )
+                pass
+            except TimeoutError as timeout_exc:
+                raise AutoActionTimeout("Timeout reached for build!") from timeout_exc
+            except Exception as exc:
+                self.notify_build_status(
+                    "failed",
+                    additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
+                )
+                log.error(str(exc))
+                pass
 
     def upload(self):
         timestamp_file = (
@@ -714,26 +717,27 @@ class AutoActionTemplate(BaseAutoAction):
             raise AutoActionError(
                 f"Different template was built in the meantime (current: {TEMPLATE_VERSION}-{timestamp_existing})"
             )
-        try:
-            upload_log_file = self.make_with_log(
-                self.publish_and_upload,
-                repository_publish=self.repository_publish,
-            )
-            self.notify_upload_status(upload_log_file)
-        except AutoActionError as autobuild_exc:
-            self.notify_build_status(
-                "failed", stage="upload", log_file=autobuild_exc.log_file
-            )
-            pass
-        except TimeoutError as timeout_exc:
-            raise AutoActionTimeout("Timeout reached for upload!") from timeout_exc
-        except Exception as exc:
-            self.notify_build_status(
-                "failed",
-                additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
-            )
-            log.error(str(exc))
-            pass
+        with timeout(self.timeout):
+            try:
+                upload_log_file = self.make_with_log(
+                    self.publish_and_upload,
+                    repository_publish=self.repository_publish,
+                )
+                self.notify_upload_status(upload_log_file)
+            except AutoActionError as autobuild_exc:
+                self.notify_build_status(
+                    "failed", stage="upload", log_file=autobuild_exc.log_file
+                )
+                pass
+            except TimeoutError as timeout_exc:
+                raise AutoActionTimeout("Timeout reached for upload!") from timeout_exc
+            except Exception as exc:
+                self.notify_build_status(
+                    "failed",
+                    additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
+                )
+                log.error(str(exc))
+                pass
 
 
 def main():
@@ -913,20 +917,19 @@ def main():
         return
 
     for cli in cli_list:
-        with timeout(cli.timeout):
-            try:
-                if args.command in ("build-component", "build-template"):
-                    cli.build()
-                elif args.command in ("upload-component", "upload-template"):
-                    cli.upload()
-                else:
-                    return
-            except CommitMismatchError as exc:
-                # this is expected for multi-branch components, don't interrupt processing
-                log.warning(str(exc))
-            except AutoActionTimeout as autobuild_exc:
-                cli.notify_build_status_on_timeout()
-                raise AutoActionTimeout(str(autobuild_exc))
+        try:
+            if args.command in ("build-component", "build-template"):
+                cli.build()
+            elif args.command in ("upload-component", "upload-template"):
+                cli.upload()
+            else:
+                return
+        except CommitMismatchError as exc:
+            # this is expected for multi-branch components, don't interrupt processing
+            log.warning(str(exc))
+        except AutoActionTimeout as autobuild_exc:
+            cli.notify_build_status_on_timeout()
+            raise AutoActionTimeout(str(autobuild_exc))
 
 
 if __name__ == "__main__":

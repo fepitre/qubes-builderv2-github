@@ -33,11 +33,13 @@ class GithubCommandError(Exception):
     pass
 
 
-def run_command(cmd, env=None, wait=False):
+def run_command(cmd, env=None, wait=False, ignore_exit_codes=(0,)):
     if wait:
         try:
             subprocess.run(cmd, env=env, check=True, capture_output=True)
         except subprocess.CalledProcessError as e:
+            if e.returncode in ignore_exit_codes:
+                return
             raise GithubCommandError(f"Failed to run command: {e.stderr}")
     else:
         subprocess.Popen(cmd, env=env)
@@ -150,13 +152,16 @@ def main():
     cmd = [
         "flock",
         "-x",
+        "-n",
+        "-E",
+        "11",
         str(scripts_dir / "builder.lock"),
         "bash",
         "-c",
         f"trap 'rm -f /tmp/update-qubes-builder' EXIT && cp {str(scripts_dir / 'utils/update-qubes-builder')} /tmp && /tmp/update-qubes-builder {str(scripts_dir)}",
     ]
     if not args.no_builders_update:
-        run_command(cmd, wait=args.wait)
+        run_command(cmd, wait=args.wait, ignore_exit_codes=(0, 11))
 
     with open(args.config_file, "r") as f:
         content = f.read().splitlines()

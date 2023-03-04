@@ -184,12 +184,15 @@ def main():
         cmd = [
             "flock",
             "-x",
+            "-n",
+            "-E",
+            "11",
             str(builder_dir / "builder.lock"),
             str(scripts_dir / "utils/update-qubes-builder"),
             str(builder_dir),
         ]
         if not args.no_builders_update:
-            run_command(cmd, wait=args.wait)
+            run_command(cmd, wait=args.wait, ignore_exit_codes=(0, 11))
 
         # Prepare github-action
         github_action_cmd = [str(scripts_dir / "github-action.py")]

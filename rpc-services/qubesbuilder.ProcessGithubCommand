@@ -48,6 +48,9 @@ case "$action" in
     Upload-template)
         "$scripts_dir/github-command.py" --log-basename "${log_basename}" --signer-fpr "$command_signer" Upload-template "$tmpdir/command"
         ;;
+    Build-iso)
+        "$scripts_dir/github-command.py" --log-basename "${log_basename}" --signer-fpr "$command_signer" Build-iso "$tmpdir/command"
+        ;;
     *)
         echo "Unknown command $action" >&2
         exit 1

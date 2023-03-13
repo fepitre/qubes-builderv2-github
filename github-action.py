@@ -36,10 +36,16 @@ import subprocess
 import sys
 import time
 import traceback
-from abc import abstractmethod, ABC
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List
+
+try:
+    from openqa_client.client import OpenQA_Client
+    from openqa_client.exceptions import OpenQAClientError
+except ImportError:
+    OpenQA_Client = None
+    OpenQAClientError = Exception
 
 from qubesbuilder.cli.cli_package import _component_stage
 from qubesbuilder.cli.cli_template import _template_stage
@@ -49,6 +55,7 @@ from qubesbuilder.cli.cli_repository import (
     _check_release_status_for_component,
     _check_release_status_for_template,
 )
+from qubesbuilder.cli.cli_installer import _installer_stage
 from qubesbuilder.config import Config
 from qubesbuilder.exc import ConfigError
 from qubesbuilder.log import init_logging
@@ -93,7 +100,7 @@ class CommitMismatchError(AutoActionError):
     pass
 
 
-class BaseAutoAction(ABC):
+class BaseAutoAction:
     def __init__(
         self,
         builder_dir,
@@ -198,17 +205,14 @@ class BaseAutoAction(ABC):
                 log.removeHandler(qrexec_stream)
             return log_file
 
-    @abstractmethod
     def build(self):
-        pass
+        raise NotImplemented
 
-    @abstractmethod
     def upload(self):
-        pass
+        raise NotImplemented
 
-    @abstractmethod
     def notify_build_status_on_timeout(self):
-        pass
+        raise NotImplemented
 
 
 class AutoAction(BaseAutoAction):
@@ -461,7 +465,7 @@ class AutoAction(BaseAutoAction):
                 release_status.get(self.component.name, {})
                 .get(dist.distribution, {})
                 .get("status", None)
-            ) in (None, 'no packages defined'):
+            ) in (None, "no packages defined"):
                 # skip not applicable distributions
                 continue
             with timeout(self.timeout):
@@ -478,7 +482,9 @@ class AutoAction(BaseAutoAction):
                     )
                     pass
                 except TimeoutError as timeout_exc:
-                    raise AutoActionTimeout("Timeout reached for upload!") from timeout_exc
+                    raise AutoActionTimeout(
+                        "Timeout reached for upload!"
+                    ) from timeout_exc
                 except Exception as exc:
                     self.notify_build_status(
                         dist,
@@ -740,6 +746,211 @@ class AutoActionTemplate(BaseAutoAction):
                 pass
 
 
+class AutoActionISO(BaseAutoAction):
+    def __init__(
+        self,
+        builder_dir,
+        config,
+        iso_timestamp,
+        state_dir,
+        commit_sha,
+        repository_publish,
+        local_log_file,
+    ):
+        super().__init__(
+            builder_dir=builder_dir,
+            config=config,
+            state_dir=state_dir,
+            commit_sha=commit_sha,
+            repository_publish=repository_publish,
+            local_log_file=local_log_file,
+        )
+
+        self.timeout = self.config.get("timeout", 21600)
+
+        config_iso = self.config.get("iso", {})
+        config_iso["version"] = commit_sha
+        self.config.set("iso", config_iso)
+
+        if iso_timestamp:
+            try:
+                self.iso_timestamp = str(
+                    datetime.datetime.strptime(iso_timestamp, "%Y%m%d%H%M")
+                )
+            except (OSError, ValueError) as exc:
+                raise AutoActionError(f"Failed to parse timestamp: {str(exc)}") from exc
+        else:
+            self.iso_timestamp = ""
+
+        host_distributions = [
+            d for d in self.config.get_distributions() if d.package_set == "host"
+        ]
+        if len(host_distributions) != 1:
+            raise AutoActionError(
+                f"None or more than one host distribution in builder configuration file!"
+            )
+        self.dist = host_distributions[0]
+        self.iso_version = self.commit_sha
+        self.isos_url = self.config.get("github", {}).get("isos-url", None)
+
+        if not self.config.get("repository-upload-remote-host", {}).get("iso", None):
+            raise AutoActionError(
+                f"No remote host configured in builder configuration file!"
+            )
+
+    def run_stages(self, stages):
+        for stage in stages:
+            _installer_stage(
+                stage_name=stage,
+                config=self.config,
+                manager=self.manager,
+                iso_timestamp=self.iso_timestamp,
+            )
+
+    def notify_build_status_on_timeout(self):
+        self.notify_build_status("failed", additional_info="Timeout")
+
+    def notify_build_status(
+        self, status, stage="build", log_file=None, additional_info=None
+    ):
+        notify_issues_cmd = [
+            f"{str(PROJECT_PATH)}/utils/notify-issues",
+            f"--message-templates-dir={str(PROJECT_PATH)}/templates",
+        ]
+
+        if log_file:
+            notify_issues_cmd += [
+                f"--build-log={self.get_build_log_url(log_file=log_file)}"
+            ]
+
+        if additional_info:
+            notify_issues_cmd += [f"--additional-info={str(additional_info)}"]
+
+        package_name = f"iso-{self.dist.name}-{self.iso_version}"
+
+        notify_issues_cmd += [
+            stage,
+            self.qubes_release,
+            str(self.builder_dir),
+            package_name,
+            self.dist.distribution,
+            status,
+        ]
+
+        try:
+            subprocess.run(notify_issues_cmd, env=self.env)
+        except subprocess.CalledProcessError as e:
+            msg = f"{package_name}: Failed to notify GitHub: {str(e)}"
+            log.error(msg)
+
+    def notify_upload_status(self, log_file=None, additional_info=None):
+        notify_issues_cmd = [
+            f"{str(PROJECT_PATH)}/utils/notify-issues",
+            f"--message-templates-dir={str(PROJECT_PATH)}/templates",
+        ]
+
+        if log_file:
+            notify_issues_cmd += [
+                f"--build-log={self.get_build_log_url(log_file=log_file)}"
+            ]
+
+        if additional_info:
+            notify_issues_cmd += [f"--additional-info={str(additional_info)}"]
+
+        package_name = f"iso-{self.dist.name}-{self.iso_version}"
+
+        state_file = (
+            self.state_dir
+            / f"{self.qubes_release}-iso-{self.dist.name}"
+            # type: ignore
+        )
+        stable_state_file = (
+            self.state_dir
+            / f"{self.qubes_release}-iso-{self.dist.name}-current"
+            # type: ignore
+        )
+        notify_issues_cmd += [
+            "upload",
+            self.qubes_release,
+            str(self.builder_dir),
+            package_name,
+            self.dist.distribution,
+            str(self.repository_publish),
+            str(state_file),
+            str(stable_state_file),
+        ]
+        if self.isos_url:
+            notify_issues_cmd += [
+                "--repository-url",
+                self.isos_url,
+            ]
+
+        try:
+            subprocess.run(notify_issues_cmd, env=self.env)
+        except subprocess.CalledProcessError as e:
+            msg = f"{package_name}: Failed to notify GitHub: {str(e)}"
+            log.error(msg)
+
+    def build(self):
+        with timeout(self.timeout):
+            stage = "build"
+            try:
+                self.notify_build_status(
+                    "building",
+                )
+
+                build_log_file = self.make_with_log(
+                    self.run_stages,
+                    stages=["init-cache", "prep", "build", "sign"],
+                )
+
+                stage = "upload"
+                self.make_with_log(
+                    self.run_stages,
+                    stages=["upload"],
+                )
+
+                additional_info = None
+                if OpenQA_Client and OpenQAClientError:
+                    try:
+                        version = self.qubes_release.lstrip("r")
+                        client = OpenQA_Client(server="openqa.qubes-os.org")
+                        params = {
+                            "DISTRI": "qubesos",
+                            "VERSION": version,
+                            "FLAVOR": "install-iso",
+                            "ARCH": "x86_64",
+                            "BUILD": self.iso_version,
+                            "ISO_URL": f"{self.isos_url}/Qubes-{self.iso_version}-x86_64.iso",
+                        }
+                        if client.openqa_request("POST", "isos", params):
+                            job_url = f"https://openqa.qubes-os.org/tests/overview?distri=qubesos&version={version}&build={self.iso_version}&groupid=1"
+                            additional_info = (
+                                f"see [openQA]({job_url}) test result overview"
+                            )
+                    except OpenQAClientError as exc:
+                        log.error(str(exc))
+
+                self.notify_upload_status(
+                    build_log_file, additional_info=additional_info
+                )
+
+            except AutoActionError as autobuild_exc:
+                self.notify_build_status(
+                    "failed", stage=stage, log_file=autobuild_exc.log_file
+                )
+                pass
+            except TimeoutError as timeout_exc:
+                raise AutoActionTimeout("Timeout reached for build!") from timeout_exc
+            except Exception as exc:
+                self.notify_build_status(
+                    "failed",
+                    additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
+                )
+                log.error(str(exc))
+                pass
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -796,20 +1007,35 @@ def main():
     template_parser.add_argument("template_sha")
     template_parser.add_argument("repository_publish")
 
+    # build iso parser
+    build_iso_parser = subparsers.add_parser("build-iso")
+    build_iso_parser.set_defaults(command="build-iso")
+    build_iso_parser.add_argument("builder_dir")
+    build_iso_parser.add_argument("builder_conf")
+    build_iso_parser.add_argument("iso_version")
+    build_iso_parser.add_argument("iso_timestamp")
+
     args = parser.parse_args()
 
     commit_sha = None
-    template_timestamp = None
+    command_timestamp = None
     if args.command == "upload-component":
         commit_sha = args.commit_sha
     elif args.command == "build-template":
-        template_timestamp = args.template_timestamp
+        command_timestamp = args.template_timestamp
     elif args.command == "upload-template":
         commit_sha = args.template_sha
-        template_timestamp = commit_sha.split("-")[-1]
+        command_timestamp = commit_sha.split("-")[-1]
+    elif args.command == "build-iso":
+        commit_sha = args.iso_version
+        command_timestamp = args.iso_timestamp
 
     if args.command in ("upload-component", "upload-template"):
         repository_publish = args.repository_publish
+    elif args.command == "build-iso":
+        # FIXME: support for stable (official) release.
+        #  For example, add --final in build_iso_parser
+        repository_publish = "isos-testing"
     else:
         repository_publish = None
 
@@ -838,9 +1064,7 @@ def main():
                 .get("components", [])
             )
             if allowed_components != "_all_":
-                components = [
-                    c for c in components if c.name in allowed_components
-                ]
+                components = [c for c in components if c.name in allowed_components]
             if not components:
                 log.info("Cannot find any allowed components.")
                 return
@@ -901,7 +1125,30 @@ def main():
                 builder_dir=args.builder_dir,
                 config=config,
                 template_name=args.template_name,
-                template_timestamp=template_timestamp,
+                template_timestamp=command_timestamp,
+                state_dir=args.state_dir,
+                commit_sha=commit_sha,
+                repository_publish=repository_publish,
+                local_log_file=local_log_file,
+            )
+        )
+    elif args.command == "build-iso":
+        # maintainers checks
+        if not args.no_signer_github_command_check:
+            allowed_to_trigger_build_iso = (
+                config.get("github", {})
+                .get("maintainers", {})
+                .get(args.signer_fpr, {})
+                .get("isos", False)
+            )
+            if not allowed_to_trigger_build_iso:
+                log.info(f"Trigger build for ISO is not allowed.")
+                return
+        cli_list.append(
+            AutoActionISO(
+                builder_dir=args.builder_dir,
+                config=config,
+                iso_timestamp=command_timestamp,
                 state_dir=args.state_dir,
                 commit_sha=commit_sha,
                 repository_publish=repository_publish,
@@ -918,7 +1165,7 @@ def main():
 
     for cli in cli_list:
         try:
-            if args.command in ("build-component", "build-template"):
+            if args.command in ("build-component", "build-template", "build-iso"):
                 cli.build()
             elif args.command in ("upload-component", "upload-template"):
                 cli.upload()

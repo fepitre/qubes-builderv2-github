@@ -1,4 +1,4 @@
-WIP: Integration with next generation of Qubes Builder:
+Integration with next generation of Qubes Builder:
 ===
 
 Parts below are mostly outdated and needs to be rewritten according to
@@ -34,6 +34,7 @@ top level key with settings:
 Optional:
 
   * `logs-repo` - repository in which every log are uploaded.
+  * `isos-url` - public URL where ISOs are uploaded. It is used only for comments.
   * `build-report-repo` - repository in which every build status package and template
     should have issue created (regardless of commenting issues mentioned in git log).
   * `maintainers` - GPG keys allowed to trigger GitHub command provided by the plugin.
@@ -46,10 +47,12 @@ github:
   state-dir: /home/user/github-notify-state
   build-report-repo: "fepitre/test-updates-status"
   logs-repo: "fepitre/test-build-logs"
+  isos-url: "https://qubes.notset.fr/iso/"
   maintainers:
     9FA64B92F95E706BF28E2CA6484010B5CDC576E2:
+      isos: true
       distributions:
-        - host-fc32
+        - host-fc37
         - vm-bookworm
       templates:
         - fedora-35-xfce
@@ -161,8 +164,9 @@ Each file is actually message template, which can contain following placeholders
  * `@REPOSITORY@` - either `testing` or `stable`
  * `@RELEASE_NAME@` - name of target Qubes release (`r2`, `r3.0` etc)
  * `@GIT_LOG@` - `git log --pretty=oneline previous_commit..current_commit` with github-like commits references
- * `@GIT_LOG_URL@` - GitHub URL to commits between previous version and the current one. "compare" github feature.
+ * `@GIT_LOG_URL@` - GitHub URL to commits between previous version and the current one. "compare" GitHub feature.
  * `@COMMIT_SHA@` - Commit SHA used to build the package.
+ * `@ISO_VERSION@` - ISO version.
 
 Ideally the message should include instruction how to install the update.
 
@@ -188,10 +192,10 @@ Installation
    See also 'RPC services configuration' chapter.
 
 3. (optional) Install GitHub webhooks (see `webhooks` directory)
-   somewhere reachable from github.com - this probably means `sys-net` in
+   somewhere reachable from `github.com` - this probably means `sys-net` in
    default Qubes OS installation. You need to configure a web server there to
    launch them as CGI scripts. Then add the hook(s) to repository/organization
-   configuration on github.com. Then fill
+   configuration on `github.com`. Then fill
    `~/.config/qubes-builder-github/build-vms.list` with a list to which
    information should be delivered (one per line). And setup qrexec policy for
    services mentioned in point 2 to actually allow such calls.

@@ -97,6 +97,7 @@ def main():
         "Upload-component",
         "Build-template",
         "Upload-template",
+        "Build-iso",
     ):
         raise GithubCommandError("Invalid command.")
 
@@ -108,6 +109,7 @@ def main():
     if command[0] != args.command:
         raise GithubCommandError("Wrong command file for requested command.")
 
+    timestamp = None
     component_name = None
     commit_sha = None
     repository_publish = None
@@ -115,6 +117,8 @@ def main():
     template_name = None
     template_timestamp = None
     template_sha = None
+    iso_version = None
+    iso_timestamp = None
     try:
         if args.command == "Build-component":
             release_name, component_name = None, command[1]
@@ -128,14 +132,10 @@ def main():
             ) = command[1:]
         elif args.command == "Build-template":
             release_name, template_name, template_timestamp = command[1:]
-
             timestamp = datetime.datetime.strptime(template_timestamp, "%Y%m%d%H%M")
-            timestamp_max = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
-            timestamp_min = datetime.datetime.utcnow() - datetime.timedelta(hours=1)
-            if timestamp < timestamp_min or timestamp_max < timestamp:
-                raise GithubCommandError(
-                    f"Timestamp outside of allowed range (min: {timestamp_min}, max: {timestamp_max}, current={timestamp}"
-                )
+        elif args.command == "Build-iso":
+            release_name, iso_version, iso_timestamp = command[1:]
+            timestamp = datetime.datetime.strptime(iso_timestamp, "%Y%m%d%H%M")
         elif args.command == "Upload-template":
             (
                 release_name,
@@ -147,6 +147,14 @@ def main():
             raise GithubCommandError(f"Unsupported command: {args.command}")
     except IndexError as e:
         raise GithubCommandError(f"Wrong number of args provided: {str(e)}")
+
+    if timestamp:
+        timestamp_max = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
+        timestamp_min = datetime.datetime.utcnow() - datetime.timedelta(hours=1)
+        if timestamp < timestamp_min or timestamp_max < timestamp:
+            raise GithubCommandError(
+                f"Timestamp outside of allowed range (min: {timestamp_min}, max: {timestamp_max}, current={timestamp}"
+            )
 
     # Update GitHub Builder
     cmd = [
@@ -206,7 +214,12 @@ def main():
             assert component_name
             github_action_cmd += [component_name]
         elif args.command == "Upload-component":
-            assert component_name and commit_sha and repository_publish and distribution_name
+            assert (
+                component_name
+                and commit_sha
+                and repository_publish
+                and distribution_name
+            )
             github_action_cmd += [
                 component_name,
                 commit_sha,
@@ -227,6 +240,9 @@ def main():
                 template_sha,
                 repository_publish,
             ]
+        elif args.command == "Build-iso":
+            assert iso_version and iso_timestamp
+            github_action_cmd += [iso_version, iso_timestamp]
         cmd = [
             "flock",
             "-x",

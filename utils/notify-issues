@@ -64,7 +64,7 @@ class NotifyIssueCli:
         dist: QubesDistribution,
         message_templates_dir: Path,
         github_report_repo_name: str,
-        min_age_days: int
+        min_age_days: int,
     ):
         self.token = token
         self.release_name = release_name
@@ -227,6 +227,10 @@ class NotifyIssueCli:
             if component.startswith("qubes-template"):
                 message_template_path = (
                     self.message_templates_dir / "message-build-report-template"
+                )
+            elif component.startswith("iso"):
+                message_template_path = (
+                    self.message_templates_dir / "message-build-report-iso"
                 )
             else:
                 message_template_path = (
@@ -397,23 +401,36 @@ class NotifyIssueCli:
         build_status=None,
         build_log=None,
         additional_info=None,
+        repository_url=None,
     ):
+
+        if self.package_name.startswith("iso"):
+            base_message = f"ISO for {self.release_name}"
+            if repository_url:
+                upload_suffix_message = f"[testing]({repository_url}) repository"
+            else:
+                upload_suffix_message = f"testing repository"
+        else:
+            base_message = f"Package for {dist_label}"
+            upload_suffix_message = f"{repo_type} repository"
 
         if build_status == "building":
             report_message = None
         elif build_status == "failed":
             if build_log:
-                report_message = f"Package for {dist_label} failed to build ([build log]({build_log}))."
+                report_message = (
+                    f"{base_message} failed to build ([build log]({build_log}))."
+                )
             else:
-                report_message = f"Package for {dist_label} failed to build."
+                report_message = f"{base_message} failed to build."
             if additional_info:
                 report_message = f"{report_message.rstrip('.')} ({additional_info})."
         else:
             if build_log:
-                report_message = f"Package for {dist_label} was built ([build log]({build_log})) and uploaded to {repo_type} repository."
+                report_message = f"{base_message} was built ([build log]({build_log})) and uploaded to {upload_suffix_message}."
             else:
                 report_message = (
-                    f"Package for {dist_label} was uploaded to {repo_type} repository."
+                    f"{base_message} was uploaded to {upload_suffix_message}."
                 )
             if additional_info:
                 report_message = f"{report_message.rstrip('.')} ({additional_info})."
@@ -439,6 +456,11 @@ class NotifyIssueCli:
                 "@TEMPLATE_NAME@": template_name,
                 "@DIST@": os.getenv("DIST_ORIG_ALIAS", "(dist)"),
             }
+        elif self.package_name.startswith("iso"):
+            parsed_package_name = self.package_name.split("-")
+            version = parsed_package_name[-1]
+            component = "iso"
+            message_kwargs = {"@ISO_VERSION@": version}
         else:
             (
                 version,
@@ -525,6 +547,7 @@ def main():
             "templates-itl-testing",
             "templates-community",
             "templates-community-testing",
+            "isos-testing",
         ],
     )
     upload_parser.add_argument(
@@ -533,6 +556,11 @@ def main():
     upload_parser.add_argument(
         "stable_state_file",
         help="File to store internal state (previous commit id of a stable aka current package)",
+    )
+    upload_parser.add_argument(
+        "--repository-url",
+        help="URL where is uploaded the package, template or ISO.",
+        default=None,
     )
 
     # Build status
@@ -547,6 +575,10 @@ def main():
     args = parser.parse_args()
 
     token = args.auth_token or os.environ.get("GITHUB_API_KEY")
+    github_report_repo_name = args.github_report_repo_name or os.environ.get(
+        "GITHUB_BUILD_REPORT_REPO"
+    )
+
     if not token:
         log.error("Please provide GITHUB_API_KEY either as CLI arg or environ.")
         return 1
@@ -555,9 +587,6 @@ def main():
         log.error(f"Ignoring release {args.release_name}")
         return 1
 
-    github_report_repo_name = args.github_report_repo_name or os.environ.get(
-        "GITHUB_BUILD_REPORT_REPO"
-    )
     if not github_report_repo_name:
         log.error(
             "Please provide GITHUB_BUILD_REPORT_REPO either as CLI arg or environ."
@@ -583,7 +612,7 @@ def main():
         dist=dist,
         github_report_repo_name=github_report_repo_name,
         message_templates_dir=message_templates_dir,
-        min_age_days=args.days
+        min_age_days=args.days,
     )
 
     if dist.package_set == "host":
@@ -594,24 +623,30 @@ def main():
     add_labels = []
     delete_labels = []
     repo_type = None
+    if args.package_name.startswith("iso"):
+        prefix_label = f"{args.release_name}"
+    else:
+        prefix_label = f"{args.release_name}-{dist_label}"
+
     if args.command == "upload":
         build_status = None
         repo_type = args.repo_type
+        repository_url = args.repository_url
         delete_labels = [
-            f"{args.release_name}-{dist_label}-failed",
-            f"{args.release_name}-{dist_label}-building",
+            f"{prefix_label}-failed",
+            f"{prefix_label}-building",
         ]
         if args.repo_type == "current":
             repo_type = "stable"
             delete_labels += [
-                f"{args.release_name}-{dist_label}-cur-test",
-                f"{args.release_name}-{dist_label}-sec-test",
+                f"{prefix_label}-cur-test",
+                f"{prefix_label}-sec-test",
             ]
-            add_labels = [f"{args.release_name}-{dist_label}-stable"]
+            add_labels = [f"{prefix_label}-stable"]
         elif args.repo_type == "current-testing":
-            add_labels = [f"{args.release_name}-{dist_label}-cur-test"]
+            add_labels = [f"{prefix_label}-cur-test"]
         elif args.repo_type == "security-testing":
-            add_labels = [f"{args.release_name}-{dist_label}-sec-test"]
+            add_labels = [f"{prefix_label}-sec-test"]
         elif args.repo_type == "templates-itl":
             delete_labels += [f"{args.release_name}-testing"]
             add_labels = [f"{args.release_name}-stable"]
@@ -620,20 +655,21 @@ def main():
         elif args.repo_type == "templates-community":
             delete_labels += [f"{args.release_name}-testing"]
             add_labels = [f"{args.release_name}-stable"]
-        elif args.repo_type == "templates-community-testing":
+        elif args.repo_type in ("templates-community-testing", "isos-testing"):
             add_labels = [f"{args.release_name}-testing"]
         else:
             log.warning(f"Ignoring {args.repo_type}")
             return
     else:
+        repository_url = None
         build_status = args.status
         if build_status == "failed":
-            add_labels = [f"{args.release_name}-{dist_label}-{build_status}"]
-            delete_labels = [f"{args.release_name}-{dist_label}-building"]
+            add_labels = [f"-failed"]
+            delete_labels = [f"{prefix_label}-building"]
         elif build_status == "building":
-            add_labels = [f"{args.release_name}-{dist_label}-{build_status}"]
+            add_labels = [f"{prefix_label}-building"]
             # we ensure that we don't keep those labels in case of previous failures
-            delete_labels = [f"{args.release_name}-{dist_label}-failed"]
+            delete_labels = [f"{prefix_label}-failed"]
 
     current_commit = cli.get_current_commit()
     previous_stable_commit = None
@@ -676,6 +712,7 @@ def main():
             build_status=build_status,
             build_log=args.build_log,
             additional_info=args.additional_info,
+            repository_url=repository_url,
         )
     except NotifyIssueError as e:
         log.error(str(e))

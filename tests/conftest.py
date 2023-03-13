@@ -30,6 +30,7 @@ artifacts-dir: {tmpdir}/artifacts
 repository-upload-remote-host:
   rpm: {tmpdir}/repo/rpm/r4.2
   deb: {tmpdir}/repo/deb/r4.2
+  iso: {tmpdir}/repo/iso/r4.2
 
 executor:
   type: qubes
@@ -47,6 +48,7 @@ executor:
             "clone",
             "-b",
             "main",
+            "--recurse-submodules",
             "https://github.com/QubesOS/qubes-builderv2",
         ]
     )

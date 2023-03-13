@@ -43,27 +43,10 @@ def rpm_packages_list(repository_dir):
         return [str(p) + ".rpm" for p in q.available()]
 
 
-def test_action_build_component(workdir):
-    tmpdir, env = workdir
-
-    cmd = [
-        str(PROJECT_PATH / "github-action.py"),
-        "--local-log-file",
-        f"{tmpdir}/build-component.log",
-        "--no-signer-github-command-check",
-        "build-component",
-        f"{tmpdir}/qubes-builderv2",
-        f"{tmpdir}/builder.yml",
-        "app-linux-split-gpg",
-    ]
-    subprocess.run(cmd, check=True, env=env)
-    _build_component_check(tmpdir)
-
-
 def _build_component_check(tmpdir):
     assert (
         tmpdir
-        / f"artifacts/components/app-linux-split-gpg/2.0.60-1/host-fc32/publish/rpm_spec_gpg-split-dom0.spec.publish.yml"
+        / f"artifacts/components/app-linux-split-gpg/2.0.60-1/host-fc37/publish/rpm_spec_gpg-split-dom0.spec.publish.yml"
     ).exists()
 
     assert (
@@ -77,33 +60,14 @@ def _build_component_check(tmpdir):
     ).exists
 
 
-def test_action_build_component_multi(workdir):
-    tmpdir, env = workdir
-
-    cmd = [
-        str(PROJECT_PATH / "github-action.py"),
-        "--local-log-file",
-        f"{tmpdir}/build-component.log",
-        "--signer-fpr",
-        FEPITRE_FPR,
-        "build-component",
-        f"{tmpdir}/qubes-builderv2",
-        f"{tmpdir}/builder.yml",
-        "app-linux-input-proxy",
-    ]
-    subprocess.run(cmd, check=True, env=env)
-
-    _build_component_check_multi(tmpdir)
-
-
 def _build_component_check_multi(tmpdir):
     assert (
         tmpdir
-        / f"artifacts/components/input-proxy/1.0.27-1/host-fc32/publish/rpm_spec_input-proxy.spec.publish.yml"
+        / f"artifacts/components/input-proxy/1.0.27-1/host-fc37/publish/rpm_spec_input-proxy.spec.publish.yml"
     ).exists()
     assert (
         tmpdir
-        / f"artifacts/components/input-proxy-clone/1.0.28-1/host-fc32/publish/rpm_spec_input-proxy.spec.publish.yml"
+        / f"artifacts/components/input-proxy-clone/1.0.28-1/host-fc37/publish/rpm_spec_input-proxy.spec.publish.yml"
     ).exists()
 
     assert (
@@ -125,50 +89,9 @@ def _build_component_check_multi(tmpdir):
     ).exists
 
 
-def test_action_upload_component(workdir):
-    tmpdir, env = workdir
-
-    cmd = [
-        str(PROJECT_PATH / "github-action.py"),
-        "--local-log-file",
-        f"{tmpdir}/upload-component.log",
-        "--signer-fpr",
-        FEPITRE_FPR,
-        "upload-component",
-        f"{tmpdir}/qubes-builderv2",
-        f"{tmpdir}/builder.yml",
-        "app-linux-split-gpg",
-        "c5316c91107b8930ab4dc3341bc75293139b5b84",
-        "security-testing",
-        "--distribution",
-        "vm-bullseye",
-    ]
-    subprocess.run(cmd, check=True, env=env)
-
-    _fix_timestamp_repo(tmpdir)
-
-    cmd = [
-        str(PROJECT_PATH / "github-action.py"),
-        "--local-log-file",
-        f"{tmpdir}/upload-component.log",
-        "--signer-fpr",
-        FEPITRE_FPR,
-        "upload-component",
-        f"{tmpdir}/qubes-builderv2",
-        f"{tmpdir}/builder.yml",
-        "app-linux-split-gpg",
-        "c5316c91107b8930ab4dc3341bc75293139b5b84",
-        "current",
-        "--distribution",
-        "all",
-    ]
-    subprocess.run(cmd, check=True, env=env)
-    _upload_component_check(tmpdir, with_input_proxy=True)
-
-
 def _fix_timestamp_repo(tmpdir):
-    for distribution in ["host-fc32", "vm-bullseye", "vm-fc36"]:
-        if distribution == "host-fc32":
+    for distribution in ["host-fc37", "vm-bullseye", "vm-fc36"]:
+        if distribution == "host-fc37":
             artifacts_path = (
                 tmpdir
                 / f"artifacts/components/app-linux-split-gpg/2.0.60-1/{distribution}/publish/rpm_spec_gpg-split-dom0.spec.publish.yml"
@@ -206,10 +129,10 @@ def _fix_timestamp_repo(tmpdir):
 
 
 def _upload_component_check(tmpdir, with_input_proxy=False):
-    # host-fc32
+    # host-fc37
     rpms = [
-        "qubes-gpg-split-dom0-2.0.60-1.fc32.src.rpm",
-        "qubes-gpg-split-dom0-2.0.60-1.fc32.x86_64.rpm",
+        "qubes-gpg-split-dom0-2.0.60-1.fc37.src.rpm",
+        "qubes-gpg-split-dom0-2.0.60-1.fc37.x86_64.rpm",
     ]
     rpms_input_proxy = [
         "qubes-input-proxy-@VERSION@-1.@DIST@.src.rpm",
@@ -224,15 +147,15 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
     rpms_testing = []
     if with_input_proxy:
         rpms_testing += [
-            rpm.replace("@VERSION@", "1.0.27").replace("@DIST@", "fc32")
+            rpm.replace("@VERSION@", "1.0.27").replace("@DIST@", "fc37")
             for rpm in rpms_input_proxy
         ]
         rpms_testing += [
-            rpm.replace("@VERSION@", "1.0.28").replace("@DIST@", "fc32")
+            rpm.replace("@VERSION@", "1.0.28").replace("@DIST@", "fc37")
             for rpm in rpms_input_proxy
         ]
     for repository in ["current-testing", "security-testing", "current"]:
-        repository_dir = f"file://{tmpdir}/artifacts/repository-publish/rpm/r4.2/{repository}/host/fc32"
+        repository_dir = f"file://{tmpdir}/artifacts/repository-publish/rpm/r4.2/{repository}/host/fc37"
         packages = rpm_packages_list(repository_dir)
         if repository == "current-testing":
             assert set(rpms + rpms_testing) == set(packages)
@@ -292,6 +215,141 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
         assert set(packages) == set(expected_packages)
 
 
+def _build_template_check(tmpdir):
+    assert (tmpdir / f"artifacts/templates/debian-11.publish.yml").exists()
+
+
+def _fix_template_timestamp_repo(tmpdir):
+    artifacts_path = tmpdir / f"artifacts/templates/debian-11.publish.yml"
+    info = yaml.safe_load(artifacts_path.read())
+    publish_timestamp = None
+    for repo in info["repository-publish"]:
+        if repo["name"] == "templates-itl-testing":
+            publish_timestamp = datetime.datetime.strptime(
+                repo["timestamp"], "%Y%m%d%H%M"
+            )
+            break
+
+    if not publish_timestamp:
+        raise ValueError("Cannot find timestamp value.")
+
+    for repo in info["repository-publish"]:
+        if repo["name"] == "templates-itl-testing":
+            repo["timestamp"] = (
+                publish_timestamp - datetime.timedelta(days=7)
+            ).strftime("%Y%m%d%H%M")
+            break
+
+    with open(artifacts_path, "w") as f:
+        f.write(yaml.dump(info))
+
+
+def _upload_template_check(tmpdir):
+    with open(tmpdir / "timestamp", "r") as f:
+        build_timestamp = f.read().rstrip("\n")
+
+    # host-fc37
+    rpms = [
+        f"qubes-template-debian-11-4.1.0-{build_timestamp}.noarch.rpm",
+    ]
+    for repository in ["templates-itl-testing", "templates-itl"]:
+        repository_dir = (
+            f"file://{tmpdir}/artifacts/repository-publish/rpm/r4.2/{repository}"
+        )
+        packages = rpm_packages_list(repository_dir)
+        assert set(rpms) == set(packages)
+
+
+def _build_iso_check(tmpdir, timestamp):
+    iso_file = tmpdir / f"artifacts/iso/Qubes-4.2.{timestamp}-x86_64.iso"
+    latest_timestamp_file = tmpdir / f"artifacts/installer/latest_fc37_iso_timestamp"
+
+    assert iso_file.exists()
+    assert latest_timestamp_file.exists()
+
+    with open(latest_timestamp_file, "r") as f:
+        latest_timestamp = f.read().rstrip("\n")
+
+    assert timestamp == latest_timestamp
+
+
+def test_action_build_component(workdir):
+    tmpdir, env = workdir
+
+    cmd = [
+        str(PROJECT_PATH / "github-action.py"),
+        "--local-log-file",
+        f"{tmpdir}/build-component.log",
+        "--no-signer-github-command-check",
+        "build-component",
+        f"{tmpdir}/qubes-builderv2",
+        f"{tmpdir}/builder.yml",
+        "app-linux-split-gpg",
+    ]
+    subprocess.run(cmd, check=True, env=env)
+    _build_component_check(tmpdir)
+
+
+def test_action_build_component_multi(workdir):
+    tmpdir, env = workdir
+
+    cmd = [
+        str(PROJECT_PATH / "github-action.py"),
+        "--local-log-file",
+        f"{tmpdir}/build-component.log",
+        "--signer-fpr",
+        FEPITRE_FPR,
+        "build-component",
+        f"{tmpdir}/qubes-builderv2",
+        f"{tmpdir}/builder.yml",
+        "app-linux-input-proxy",
+    ]
+    subprocess.run(cmd, check=True, env=env)
+
+    _build_component_check_multi(tmpdir)
+
+
+def test_action_upload_component(workdir):
+    tmpdir, env = workdir
+
+    cmd = [
+        str(PROJECT_PATH / "github-action.py"),
+        "--local-log-file",
+        f"{tmpdir}/upload-component.log",
+        "--signer-fpr",
+        FEPITRE_FPR,
+        "upload-component",
+        f"{tmpdir}/qubes-builderv2",
+        f"{tmpdir}/builder.yml",
+        "app-linux-split-gpg",
+        "c5316c91107b8930ab4dc3341bc75293139b5b84",
+        "security-testing",
+        "--distribution",
+        "vm-bullseye",
+    ]
+    subprocess.run(cmd, check=True, env=env)
+
+    _fix_timestamp_repo(tmpdir)
+
+    cmd = [
+        str(PROJECT_PATH / "github-action.py"),
+        "--local-log-file",
+        f"{tmpdir}/upload-component.log",
+        "--signer-fpr",
+        FEPITRE_FPR,
+        "upload-component",
+        f"{tmpdir}/qubes-builderv2",
+        f"{tmpdir}/builder.yml",
+        "app-linux-split-gpg",
+        "c5316c91107b8930ab4dc3341bc75293139b5b84",
+        "current",
+        "--distribution",
+        "all",
+    ]
+    subprocess.run(cmd, check=True, env=env)
+    _upload_component_check(tmpdir, with_input_proxy=True)
+
+
 def test_action_build_template(workdir):
     tmpdir, env = workdir
 
@@ -327,10 +385,6 @@ def test_action_build_template(workdir):
     _build_template_check(tmpdir)
 
 
-def _build_template_check(tmpdir):
-    assert (tmpdir / f"artifacts/templates/debian-11.publish.yml").exists()
-
-
 def test_action_upload_template(workdir):
     tmpdir, env = workdir
 
@@ -356,42 +410,24 @@ def test_action_upload_template(workdir):
     _upload_template_check(tmpdir)
 
 
-def _fix_template_timestamp_repo(tmpdir):
-    artifacts_path = tmpdir / f"artifacts/templates/debian-11.publish.yml"
-    info = yaml.safe_load(artifacts_path.read())
-    publish_timestamp = None
-    for repo in info["repository-publish"]:
-        if repo["name"] == "templates-itl-testing":
-            publish_timestamp = datetime.datetime.strptime(
-                repo["timestamp"], "%Y%m%d%H%M"
-            )
-            break
+def test_action_build_iso(workdir):
+    tmpdir, env = workdir
 
-    if not publish_timestamp:
-        raise ValueError("Cannot find timestamp value.")
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    with open(tmpdir / "timestamp", "w") as f:
+        f.write(timestamp)
 
-    for repo in info["repository-publish"]:
-        if repo["name"] == "templates-itl-testing":
-            repo["timestamp"] = (
-                publish_timestamp - datetime.timedelta(days=7)
-            ).strftime("%Y%m%d%H%M")
-            break
-
-    with open(artifacts_path, "w") as f:
-        f.write(yaml.dump(info))
-
-
-def _upload_template_check(tmpdir):
-    with open(tmpdir / "timestamp", "r") as f:
-        build_timestamp = f.read().rstrip("\n")
-
-    # host-fc32
-    rpms = [
-        f"qubes-template-debian-11-4.1.0-{build_timestamp}.noarch.rpm",
+    cmd = [
+        str(PROJECT_PATH / "github-action.py"),
+        "--local-log-file",
+        f"{tmpdir}/build-iso.log",
+        "--signer-fpr",
+        FEPITRE_FPR,
+        "build-iso",
+        f"{tmpdir}/qubes-builderv2",
+        f"{tmpdir}/builder.yml",
+        f"4.2.{timestamp}",
+        timestamp,
     ]
-    for repository in ["templates-itl-testing", "templates-itl"]:
-        repository_dir = (
-            f"file://{tmpdir}/artifacts/repository-publish/rpm/r4.2/{repository}"
-        )
-        packages = rpm_packages_list(repository_dir)
-        assert set(rpms) == set(packages)
+    subprocess.run(cmd, check=True, env=env)
+    _build_iso_check(tmpdir, timestamp)

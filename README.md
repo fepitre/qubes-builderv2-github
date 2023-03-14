@@ -34,7 +34,7 @@ top level key with settings:
 Optional:
 
   * `logs-repo` - repository in which every log are uploaded.
-  * `isos-url` - public URL where ISOs are uploaded. It is used only for comments.
+  * `iso-base-url` - public base URL where ISOs are uploaded (`iso` or `iso-testing` repositories). It is used only for comments.
   * `build-report-repo` - repository in which every build status package and template
     should have issue created (regardless of commenting issues mentioned in git log).
   * `maintainers` - GPG keys allowed to trigger GitHub command provided by the plugin.
@@ -47,10 +47,10 @@ github:
   state-dir: /home/user/github-notify-state
   build-report-repo: "fepitre/test-updates-status"
   logs-repo: "fepitre/test-build-logs"
-  isos-url: "https://qubes.notset.fr/iso/"
+  iso-base-url: "https://qubes.notset.fr/"
   maintainers:
     9FA64B92F95E706BF28E2CA6484010B5CDC576E2:
-      isos: true
+      iso: true
       distributions:
         - host-fc37
         - vm-bookworm

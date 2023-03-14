@@ -5,7 +5,7 @@ github:
   logs-repo: "fepitre/test-build-logs"
   maintainers:
     9FA64B92F95E706BF28E2CA6484010B5CDC576E2:
-      isos: true
+      iso: true
       components: _all_
       distributions:
         - host-fc37
@@ -15,7 +15,7 @@ github:
         - fedora-35-xfce
         - debian-11
     632F8C69E01B25C9E0C3ADF2F360C0D259FB650C:
-      isos: true
+      iso: true
       components: _all_
       distributions: _all_
       templates: _all_

@@ -36,6 +36,7 @@ import subprocess
 import sys
 import time
 import traceback
+from abc import abstractmethod, ABC
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List
@@ -100,7 +101,7 @@ class CommitMismatchError(AutoActionError):
     pass
 
 
-class BaseAutoAction:
+class BaseAutoAction(ABC):
     def __init__(
         self,
         builder_dir,
@@ -205,14 +206,17 @@ class BaseAutoAction:
                 log.removeHandler(qrexec_stream)
             return log_file
 
+    @abstractmethod
     def build(self):
-        raise NotImplemented
+        pass
 
+    @abstractmethod
     def upload(self):
-        raise NotImplemented
+        pass
 
+    @abstractmethod
     def notify_build_status_on_timeout(self):
-        raise NotImplemented
+        pass
 
 
 class AutoAction(BaseAutoAction):
@@ -756,6 +760,7 @@ class AutoActionISO(BaseAutoAction):
         commit_sha,
         repository_publish,
         local_log_file,
+        is_final=False,
     ):
         super().__init__(
             builder_dir=builder_dir,
@@ -769,6 +774,7 @@ class AutoActionISO(BaseAutoAction):
         self.timeout = self.config.get("timeout", 21600)
 
         config_iso = self.config.get("iso", {})
+        config_iso["is-final"] = is_final
         config_iso["version"] = commit_sha
         self.config.set("iso", config_iso)
 
@@ -791,7 +797,7 @@ class AutoActionISO(BaseAutoAction):
             )
         self.dist = host_distributions[0]
         self.iso_version = self.commit_sha
-        self.isos_url = self.config.get("github", {}).get("isos-url", None)
+        self.iso_base_url = self.config.get("github", {}).get("iso-base-url", None)
 
         if not self.config.get("repository-upload-remote-host", {}).get("iso", None):
             raise AutoActionError(
@@ -879,10 +885,10 @@ class AutoActionISO(BaseAutoAction):
             str(state_file),
             str(stable_state_file),
         ]
-        if self.isos_url:
+        if self.iso_base_url:
             notify_issues_cmd += [
                 "--repository-url",
-                self.isos_url,
+                self.iso_base_url / self.repository_publish,
             ]
 
         try:
@@ -890,6 +896,9 @@ class AutoActionISO(BaseAutoAction):
         except subprocess.CalledProcessError as e:
             msg = f"{package_name}: Failed to notify GitHub: {str(e)}"
             log.error(msg)
+
+    def upload(self):
+        raise NotImplemented
 
     def build(self):
         with timeout(self.timeout):
@@ -911,17 +920,27 @@ class AutoActionISO(BaseAutoAction):
                 )
 
                 additional_info = None
-                if OpenQA_Client and OpenQAClientError:
+                server = self.config.get("openqa", {}).get("server", "openqa.qubes-os.org")
+                key = self.config.get("openqa", {}).get("key", None)
+                secret = self.config.get("openqa", {}).get("secret", None)
+                if all([key, secret, OpenQA_Client, OpenQAClientError]):
+                    openqa_client_path = Path.home() / ".config/openqa/client.conf"
+                    openqa_client_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(openqa_client_path, "w") as f:
+                        f.write(f"""[{server}]
+key = {key}
+secret = {secret}
+""")
                     try:
                         version = self.qubes_release.lstrip("r")
-                        client = OpenQA_Client(server="openqa.qubes-os.org")
+                        client = OpenQA_Client(server=server)
                         params = {
                             "DISTRI": "qubesos",
                             "VERSION": version,
                             "FLAVOR": "install-iso",
                             "ARCH": "x86_64",
                             "BUILD": self.iso_version,
-                            "ISO_URL": f"{self.isos_url}/Qubes-{self.iso_version}-x86_64.iso",
+                            "ISO_URL": f"{self.iso_base_url}/{self.repository_publish}/Qubes-{self.iso_version}-x86_64.iso",
                         }
                         if client.openqa_request("POST", "isos", params):
                             job_url = f"https://openqa.qubes-os.org/tests/overview?distri=qubesos&version={version}&build={self.iso_version}&groupid=1"
@@ -1014,6 +1033,11 @@ def main():
     build_iso_parser.add_argument("builder_conf")
     build_iso_parser.add_argument("iso_version")
     build_iso_parser.add_argument("iso_timestamp")
+    build_iso_parser.add_argument(
+        "--final",
+        action="store_true",
+        default=False,
+    )
 
     args = parser.parse_args()
 
@@ -1033,9 +1057,7 @@ def main():
     if args.command in ("upload-component", "upload-template"):
         repository_publish = args.repository_publish
     elif args.command == "build-iso":
-        # FIXME: support for stable (official) release.
-        #  For example, add --final in build_iso_parser
-        repository_publish = "isos-testing"
+        repository_publish = "iso" if args.final else "iso-testing"
     else:
         repository_publish = None
 
@@ -1139,7 +1161,7 @@ def main():
                 config.get("github", {})
                 .get("maintainers", {})
                 .get(args.signer_fpr, {})
-                .get("isos", False)
+                .get("iso", False)
             )
             if not allowed_to_trigger_build_iso:
                 log.info(f"Trigger build for ISO is not allowed.")

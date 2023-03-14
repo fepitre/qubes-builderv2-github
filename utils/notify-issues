@@ -653,9 +653,9 @@ def main():
         elif args.repo_type == "templates-itl-testing":
             add_labels += [f"{args.release_name}-testing"]
         elif args.repo_type == "templates-community":
-            delete_labels += [f"{args.release_name}-testing"]
+            delete_labels += [f"{args.release_name}-testing", "iso"]
             add_labels = [f"{args.release_name}-stable"]
-        elif args.repo_type in ("templates-community-testing", "isos-testing"):
+        elif args.repo_type in ("templates-community-testing", "iso-testing"):
             add_labels = [f"{args.release_name}-testing"]
         else:
             log.warning(f"Ignoring {args.repo_type}")

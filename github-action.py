@@ -898,7 +898,7 @@ class AutoActionISO(BaseAutoAction):
             log.error(msg)
 
     def upload(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     def build(self):
         with timeout(self.timeout):

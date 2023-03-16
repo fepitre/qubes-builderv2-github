@@ -1,4 +1,4 @@
-Update of @COMPONENT@ to @VERSION@ for Qubes @RELEASE_NAME@, see comments below for details and build status.
+Update of @COMPONENT@ to @VERSION@ for Qubes OS @RELEASE_NAME@, see comments below for details and build status.
 
 From commit: @GIT_URL@/commit/@COMMIT_SHA@
 

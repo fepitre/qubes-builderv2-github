@@ -173,9 +173,7 @@ def test_command_03_upload_template(workdir):
 
     # Write command
     with open(f"{tmpdir}/command", "w") as f:
-        f.write(
-            f"Upload-template r4.2 debian-11 4.1.0-{timestamp} templates-itl"
-        )
+        f.write(f"Upload-template r4.2 debian-11 4.1.0-{timestamp} templates-itl")
 
     # Dry-run
     set_dry_run(f"{tmpdir}/builder.yml")
@@ -198,3 +196,43 @@ def test_command_03_upload_template(workdir):
         cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-action.py --signer-fpr {FEPITRE_FPR} upload-template {builder_dir} {builder_conf} debian-11 4.1.0-{timestamp} templates-itl"
         if not find_github_action(all_processes, cmdline):
             raise ValueError(f"{cmdline}: cannot find process.")
+
+
+def test_command_04_build_iso(workdir):
+    tmpdir, _ = workdir
+
+    # Create builder list
+    builders_list = create_builders_list(tmpdir)
+
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    with open(tmpdir / "timestamp", "w") as f:
+        f.write(timestamp)
+
+    # Write command
+    with open(f"{tmpdir}/command", "w") as f:
+        f.write(f"Build-iso r4.2 4.2.{timestamp} {timestamp}")
+
+    # Dry-run
+    set_dry_run(f"{tmpdir}/builder.yml")
+
+    cmd = [
+        str(tmpdir / "qubes-builder-github/github-command.py"),
+        "--scripts-dir",
+        str(tmpdir / "qubes-builder-github"),
+        "--config-file",
+        f"{tmpdir}/builders.list",
+        "--signer-fpr",
+        FEPITRE_FPR,
+        "Build-iso",
+        f"{tmpdir}/command",
+    ]
+    command_process = subprocess.Popen(cmd)
+    all_processes = get_all_processes()
+    for b in builders_list:
+        release, builder_dir, builder_conf = b
+        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-action.py --signer-fpr {FEPITRE_FPR} build-iso {builder_dir} {builder_conf} 4.2.{timestamp} {timestamp}"
+        if not find_github_action(all_processes, cmdline):
+            raise ValueError(f"{cmdline}: cannot find process.")
+    command_process.communicate()
+    if command_process.poll() != 0:
+        raise ValueError("github-command failed.")

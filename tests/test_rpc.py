@@ -7,6 +7,7 @@ from test_action import (
     _upload_component_check,
     _build_template_check,
     _upload_template_check,
+    _build_iso_check,
     _fix_timestamp_repo,
     _fix_template_timestamp_repo,
 )
@@ -139,6 +140,20 @@ def generate_signed_upload_template_command(
     ).stdout
 
 
+def generate_signed_build_iso_command(env, timestamp=None):
+    if not timestamp:
+        timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    return subprocess.run(
+        [
+            f"echo Build-iso r4.2 4.2.{timestamp} {timestamp} | gpg2 --clearsign -u {TESTUSER_FPR}"
+        ],
+        shell=True,
+        check=True,
+        capture_output=True,
+        env=env,
+    ).stdout
+
+
 def _parse_command(tmpdir, env, signed_command):
     subprocess.run(
         [
@@ -171,7 +186,13 @@ def test_rpc_02_parse_command_upload_template(workdir):
     _parse_command(tmpdir, env, signed_command)
 
 
-def test_rpc_03_trigger_build(workdir):
+def test_rpc_03_parse_command_build_iso(workdir):
+    tmpdir, env = workdir
+    signed_command = generate_signed_build_iso_command(env)
+    _parse_command(tmpdir, env, signed_command)
+
+
+def test_rpc_04_trigger_build(workdir):
     tmpdir, env = workdir
 
     # Create builder list
@@ -191,7 +212,7 @@ def test_rpc_03_trigger_build(workdir):
     _build_component_check(tmpdir)
 
 
-def test_rpc_04_upload_component_command(workdir):
+def test_rpc_05_upload_component_command(workdir):
     tmpdir, env = workdir
 
     # Create builder list
@@ -239,7 +260,7 @@ def test_rpc_04_upload_component_command(workdir):
     _upload_component_check(tmpdir)
 
 
-def test_rpc_05_build_template_command(workdir):
+def test_rpc_06_build_template_command(workdir):
     tmpdir, env = workdir
 
     # Create builder list
@@ -248,7 +269,7 @@ def test_rpc_05_build_template_command(workdir):
     # Adapt RPC for tests
     fix_scripts_dir(tmpdir, logfile=str(tmpdir / "build-command.log"), env=env)
 
-    # fetch builder-debian, but do similarly as normally it would be done 
+    # fetch builder-debian, but do similarly as normally it would be done
     subprocess.run(
         [
             str(tmpdir / "qubes-builder-github/rpc-services/qubesbuilder.TriggerBuild"),
@@ -280,7 +301,7 @@ def test_rpc_05_build_template_command(workdir):
     _build_template_check(tmpdir)
 
 
-def test_rpc_06_upload_template_command(workdir):
+def test_rpc_07_upload_template_command(workdir):
     tmpdir, env = workdir
 
     # Create builder list
@@ -313,3 +334,33 @@ def test_rpc_06_upload_template_command(workdir):
 
     # check everything is in repositories as expected
     _upload_template_check(tmpdir)
+
+
+def test_rpc_08_build_iso_command(workdir):
+    tmpdir, env = workdir
+
+    # Create builder list
+    create_builders_list(tmpdir)
+
+    # Adapt RPC for tests
+    fix_scripts_dir(tmpdir, logfile=str(tmpdir / "build-command.log"), env=env)
+
+    # create signed build iso command
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    with open(tmpdir / "timestamp", "w") as f:
+        f.write(timestamp)
+    signed_command = generate_signed_build_iso_command(env)
+    subprocess.run(
+        [
+            str(
+                tmpdir
+                / "qubes-builder-github/rpc-services/qubesbuilder.ProcessGithubCommand"
+            )
+        ],
+        input=signed_command,
+        capture_output=True,
+        env=env,
+    )
+
+    # check everything is in repositories as expected
+    _build_iso_check(tmpdir, timestamp)

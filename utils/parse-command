@@ -178,6 +178,37 @@ def validate_upload_template_command(untrusted_command: bytes) -> None:
             )
 
 
+def validate_build_iso_command(untrusted_command: bytes) -> None:
+    """
+    Validate a build iso command.
+    """
+    try:
+        (
+            command,
+            untrusted_release_name,
+            untrusted_iso_version,
+            untrusted_iso_timestamp,
+        ) = untrusted_command.split(b" ")
+    except ValueError:
+        raise BadCommandError(
+            "Build-iso takes 3 arguments: release name, iso version, and iso timestamp"
+        )
+    if command != b"Build-iso":
+        raise AssertionError("Wrong command passed to validate_build_iso_command")
+    if not untrusted_release_name:
+        raise BadCommandError("Empty release name")
+    if not untrusted_iso_version:
+        raise BadCommandError("Empty iso version")
+    timestamp_len = len(untrusted_iso_timestamp)
+    if timestamp_len != 12:
+        raise BadCommandError(f"Timestamp must be 12 bytes long, not {timestamp_len}")
+    for i in untrusted_iso_timestamp:
+        if not (0x30 <= i <= 0x39):
+            raise BadCommandError(
+                "Timestamp must be exactly 12 decimal digits, including leading zeros"
+            )
+
+
 def check_command(untrusted_command: bytes) -> None:
     """
     Check a command provided via a GitHub comment
@@ -208,6 +239,8 @@ def check_command(untrusted_command: bytes) -> None:
         validate_upload_template_command(untrusted_command)
     elif untrusted_command.startswith(b"Upload-component "):
         validate_upload_component_command(untrusted_command)
+    elif untrusted_command.startswith(b"Build-iso "):
+        validate_build_iso_command(untrusted_command)
     else:
         raise BadCommandError("Unknown command")
 

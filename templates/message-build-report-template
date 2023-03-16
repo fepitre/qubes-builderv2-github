@@ -1,4 +1,4 @@
-Template @TEMPLATE_NAME@ @VERSION@ for Qubes @RELEASE_NAME@, see comments below for details and build status.
+Template @TEMPLATE_NAME@ @VERSION@ for Qubes OS @RELEASE_NAME@, see comments below for details and build status.
 
 If you're release manager, you can issue GPG-inline signed command (depending on template):
 

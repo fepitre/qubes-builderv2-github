@@ -625,6 +625,11 @@ def main():
     repo_type = None
     if args.package_name.startswith("iso"):
         prefix_label = f"{args.release_name}"
+    elif args.package_name.startswith("qubes-template"):
+        # qubes-template-fedora-25-4.0.0-201710170053
+        component = "-".join(args.package_name.split("-")[:-2])
+        template_name = component.replace("qubes-template-", "")
+        prefix_label = f"{args.release_name}-{template_name}"
     else:
         prefix_label = f"{args.release_name}-{dist_label}"
 
@@ -664,7 +669,7 @@ def main():
         repository_url = None
         build_status = args.status
         if build_status == "failed":
-            add_labels = [f"-failed"]
+            add_labels = [f"{prefix_label}-failed"]
             delete_labels = [f"{prefix_label}-building"]
         elif build_status == "building":
             add_labels = [f"{prefix_label}-building"]

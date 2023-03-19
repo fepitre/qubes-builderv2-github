@@ -547,7 +547,7 @@ def main():
             "templates-itl-testing",
             "templates-community",
             "templates-community-testing",
-            "isos-testing",
+            "iso-testing",
         ],
     )
     upload_parser.add_argument(
@@ -623,13 +623,8 @@ def main():
     add_labels = []
     delete_labels = []
     repo_type = None
-    if args.package_name.startswith("iso"):
+    if args.package_name.startswith("iso") or args.package_name.startswith("qubes-template"):
         prefix_label = f"{args.release_name}"
-    elif args.package_name.startswith("qubes-template"):
-        # qubes-template-fedora-25-4.0.0-201710170053
-        component = "-".join(args.package_name.split("-")[:-2])
-        template_name = component.replace("qubes-template-", "")
-        prefix_label = f"{args.release_name}-{template_name}"
     else:
         prefix_label = f"{args.release_name}-{dist_label}"
 

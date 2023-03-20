@@ -1,38 +1,26 @@
 import datetime
-import os
 import subprocess
 from pathlib import Path
-from github import Github, GithubException
 
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
 
-TESTS_UPDATES_STATUS = os.environ.get(
-    "GITHUB_UPDATES_STATUS", "fepitre-bot/tests-updates-status"
-)
 
-
-def get_issue(issue_title, gi=Github()):
-    try:
-        github_repo = gi.get_repo(TESTS_UPDATES_STATUS)
-    except GithubException as e:
-        raise ValueError(str(e)) from e
+def get_issue(issue_title, repository):
     issue = None
-    for i in github_repo.get_issues():
+    for i in repository.get_issues():
         if i.title == issue_title:
             issue = i
             break
     return issue
 
 
-def test_notify_00_template_build_success_upload(tmpdir_factory):
+def test_notify_00_template_build_success_upload(
+    token, github_repository, tmpdir_factory
+):
     tmpdir = tmpdir_factory.mktemp("github-")
-    token = os.environ.get("GITHUB_API_KEY")
-    if not token:
-        raise ValueError("Cannot find GITHUB_API_TOKEN.")
-
     build_log = "dummy"
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
     template_name = "fedora-42"
     package_name = f"qubes-template-{template_name}-4.2.0-{timestamp}"
     distribution = "vm-fc42"
@@ -47,7 +35,7 @@ def test_notify_00_template_build_success_upload(tmpdir_factory):
         f"--auth-token={token}",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={TESTS_UPDATES_STATUS}",
+        f"--github-report-repo-name={github_repository.full_name}",
         "build",
         "r4.2",
         str(tmpdir),
@@ -70,8 +58,7 @@ Above commands will work only if package in testing repository isn't superseded 
 For more information on how to test this update, please take a look at https://www.qubes-os.org/doc/testing/#updates.
 """
 
-    gi = Github(token)
-    issue = get_issue(issue_title=issue_title, gi=gi)
+    issue = get_issue(issue_title=issue_title, repository=github_repository)
 
     # Check if issue has been created
     assert issue is not None
@@ -92,7 +79,7 @@ For more information on how to test this update, please take a look at https://w
         f"--auth-token={token}",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={TESTS_UPDATES_STATUS}",
+        f"--github-report-repo-name={github_repository.full_name}",
         "upload",
         "r4.2",
         tmpdir,
@@ -120,14 +107,10 @@ For more information on how to test this update, please take a look at https://w
     )
 
 
-def test_notify_01_template_build_failure(tmpdir_factory):
+def test_notify_01_template_build_failure(token, github_repository, tmpdir_factory):
     tmpdir = tmpdir_factory.mktemp("github-")
-    token = os.environ.get("GITHUB_API_KEY")
-    if not token:
-        raise ValueError("Cannot find GITHUB_API_TOKEN.")
-
     build_log = "dummy"
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
     template_name = "debian-13"
     package_name = f"qubes-template-{template_name}-4.2.0-{timestamp}"
     distribution = "vm-trixie"
@@ -142,7 +125,7 @@ def test_notify_01_template_build_failure(tmpdir_factory):
         f"--auth-token={token}",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={TESTS_UPDATES_STATUS}",
+        f"--github-report-repo-name={github_repository.full_name}",
         "build",
         "r4.2",
         str(tmpdir),
@@ -153,8 +136,7 @@ def test_notify_01_template_build_failure(tmpdir_factory):
     subprocess.run(cmd, check=True)
 
     issue_title = f"qubes-template-{template_name} 4.2.0-{timestamp} (r4.2)"
-    gi = Github(token)
-    issue = get_issue(issue_title=issue_title, gi=gi)
+    issue = get_issue(issue_title=issue_title, repository=github_repository)
 
     #
     # failure
@@ -166,7 +148,7 @@ def test_notify_01_template_build_failure(tmpdir_factory):
         f"--auth-token={token}",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={TESTS_UPDATES_STATUS}",
+        f"--github-report-repo-name={github_repository.full_name}",
         "build",
         "r4.2",
         str(tmpdir),
@@ -192,14 +174,10 @@ def test_notify_01_template_build_failure(tmpdir_factory):
     )
 
 
-def test_notify_02_iso_build_success_upload(tmpdir_factory):
+def test_notify_02_iso_build_success_upload(token, github_repository, tmpdir_factory):
     tmpdir = tmpdir_factory.mktemp("github-")
-    token = os.environ.get("GITHUB_API_KEY")
-    if not token:
-        raise ValueError("Cannot find GITHUB_API_TOKEN.")
-
     build_log = "dummy"
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
     distribution = "host-fc42"
     package_name = f"iso-{distribution}-4.2.{timestamp}"
 
@@ -213,7 +191,7 @@ def test_notify_02_iso_build_success_upload(tmpdir_factory):
         f"--auth-token={token}",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={TESTS_UPDATES_STATUS}",
+        f"--github-report-repo-name={github_repository.full_name}",
         "build",
         "r4.2",
         str(tmpdir),
@@ -229,8 +207,7 @@ def test_notify_02_iso_build_success_upload(tmpdir_factory):
 For more information on how to test this update, please take a look at https://www.qubes-os.org/doc/testing/#updates.
 """
 
-    gi = Github(token)
-    issue = get_issue(issue_title=issue_title, gi=gi)
+    issue = get_issue(issue_title=issue_title, repository=github_repository)
 
     # Check if issue has been created
     assert issue is not None
@@ -251,7 +228,7 @@ For more information on how to test this update, please take a look at https://w
         f"--auth-token={token}",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={TESTS_UPDATES_STATUS}",
+        f"--github-report-repo-name={github_repository.full_name}",
         "upload",
         "r4.2",
         tmpdir,
@@ -279,14 +256,10 @@ For more information on how to test this update, please take a look at https://w
     )
 
 
-def test_notify_03_iso_build_failure(tmpdir_factory):
+def test_notify_03_iso_build_failure(token, github_repository, tmpdir_factory):
     tmpdir = tmpdir_factory.mktemp("github-")
-    token = os.environ.get("GITHUB_API_KEY")
-    if not token:
-        raise ValueError("Cannot find GITHUB_API_TOKEN.")
-
     build_log = "dummy"
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
     distribution = "host-fc42"
     package_name = f"iso-{distribution}-4.2.{timestamp}"
 
@@ -300,7 +273,7 @@ def test_notify_03_iso_build_failure(tmpdir_factory):
         f"--auth-token={token}",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={TESTS_UPDATES_STATUS}",
+        f"--github-report-repo-name={github_repository.full_name}",
         "build",
         "r4.2",
         str(tmpdir),
@@ -311,8 +284,7 @@ def test_notify_03_iso_build_failure(tmpdir_factory):
     subprocess.run(cmd, check=True)
 
     issue_title = f"iso 4.2.{timestamp} (r4.2)"
-    gi = Github(token)
-    issue = get_issue(issue_title=issue_title, gi=gi)
+    issue = get_issue(issue_title=issue_title, repository=github_repository)
 
     #
     # failure
@@ -324,7 +296,7 @@ def test_notify_03_iso_build_failure(tmpdir_factory):
         f"--auth-token={token}",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={TESTS_UPDATES_STATUS}",
+        f"--github-report-repo-name={github_repository.full_name}",
         "build",
         "r4.2",
         str(tmpdir),
@@ -347,20 +319,14 @@ def test_notify_03_iso_build_failure(tmpdir_factory):
     assert comments[0].body == f"ISO for r4.2 failed to build ([build log](dummy))."
 
 
-def test_notify_04_component_build_success_upload(tmpdir_factory):
+def test_notify_04_component_build_success_upload(
+    token, github_repository, tmpdir_factory
+):
     tmpdir = tmpdir_factory.mktemp("github-")
-    token = os.environ.get("GITHUB_API_KEY")
-    if not token:
-        raise ValueError("Cannot find GITHUB_API_TOKEN.")
-
     build_log = "dummy"
     distribution = "vm-fc42"
     package_name = "core-admin-linux"
     version = "4.2.6"
-
-    gi = Github(token)
-    issue_title = f"{package_name} v{version} (r4.2)"
-    issue = get_issue(issue_title=issue_title, gi=gi)
 
     subprocess.run(
         [
@@ -386,7 +352,7 @@ def test_notify_04_component_build_success_upload(tmpdir_factory):
         f"--auth-token={token}",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={TESTS_UPDATES_STATUS}",
+        f"--github-report-repo-name={github_repository.full_name}",
         "build",
         "r4.2",
         str(tmpdir / package_name),
@@ -429,6 +395,8 @@ Above commands will work only if packages in current-testing repository were bui
 
 For more information on how to test this update, please take a look at https://www.qubes-os.org/doc/testing/#updates.
 """
+    issue_title = f"{package_name} v{version} (r4.2)"
+    issue = get_issue(issue_title=issue_title, repository=github_repository)
 
     # Check if issue has been created
     assert issue is not None
@@ -455,7 +423,7 @@ For more information on how to test this update, please take a look at https://w
         f"--auth-token={token}",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={TESTS_UPDATES_STATUS}",
+        f"--github-report-repo-name={github_repository.full_name}",
         "upload",
         "r4.2",
         str(tmpdir / package_name),
@@ -479,5 +447,5 @@ For more information on how to test this update, please take a look at https://w
     assert len(comments) == 1
     assert (
         comments[0].body
-        == f"Package for r4.2 was built ([build log]({build_log})) and uploaded to current-testing repository."
+        == f"Package for vm-fc42 was built ([build log]({build_log})) and uploaded to current-testing repository."
     )

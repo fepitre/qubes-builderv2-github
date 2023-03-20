@@ -20,7 +20,7 @@ def get_random_string(length):
 @pytest.fixture(scope="session")
 def token():
     github_api_key = os.environ.get("GITHUB_API_KEY")
-    if not token:
+    if not github_api_key:
         raise ValueError("Cannot find GITHUB_API_TOKEN.")
     return github_api_key
 

@@ -4,14 +4,12 @@ stages:
 variables:
   DEBUG: "1"
 
-workflow:
+.pytest:
+  stage: test
   rules:
     - if: $CI_COMMIT_REF_NAME == "test"
       when: always
-    - when: never
-
-.pytest:
-  stage: test
+    - when: manual
   tags:
     - qubes
   artifacts:
@@ -48,6 +46,10 @@ test_notify:
 
 mypy:
   stage: test
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "test"
+      when: always
+    - when: manual
   image: fedora:latest
   tags:
     - docker

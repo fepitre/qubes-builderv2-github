@@ -1,6 +1,6 @@
 import datetime
-import subprocess
 import os
+import subprocess
 
 from test_action import (
     _build_component_check,

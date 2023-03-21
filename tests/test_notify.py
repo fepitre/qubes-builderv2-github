@@ -1,4 +1,5 @@
 import datetime
+import os
 import subprocess
 from pathlib import Path
 
@@ -15,10 +16,8 @@ def get_issue(issue_title, repository):
     return issue
 
 
-def test_notify_00_template_build_success_upload(
-    token, github_repository, tmpdir_factory
-):
-    tmpdir = tmpdir_factory.mktemp("github-")
+def test_notify_00_template_build_success_upload(token, github_repository, workdir):
+    tmpdir, env = workdir
     build_log = "dummy"
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
     template_name = "fedora-42"
@@ -42,7 +41,7 @@ def test_notify_00_template_build_success_upload(
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
     issue_title = f"qubes-template-{template_name} 4.2.0-{timestamp} (r4.2)"
     issue_desc = f"""Template {template_name} 4.2.0-{timestamp} for Qubes OS r4.2, see comments below for details and build status.
@@ -87,7 +86,7 @@ For more information on how to test this update, please take a look at https://w
         str(tmpdir / "state_file"),
         str(tmpdir / "stable_state_file"),
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
     # Refresh issue object
     issue.update()
@@ -105,8 +104,8 @@ For more information on how to test this update, please take a look at https://w
     )
 
 
-def test_notify_01_template_build_failure(token, github_repository, tmpdir_factory):
-    tmpdir = tmpdir_factory.mktemp("github-")
+def test_notify_01_template_build_failure(token, github_repository, workdir):
+    tmpdir, env = workdir
     build_log = "dummy"
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
     template_name = "debian-13"
@@ -130,7 +129,7 @@ def test_notify_01_template_build_failure(token, github_repository, tmpdir_facto
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
     issue_title = f"qubes-template-{template_name} 4.2.0-{timestamp} (r4.2)"
     issue = get_issue(issue_title=issue_title, repository=github_repository)
@@ -152,7 +151,7 @@ def test_notify_01_template_build_failure(token, github_repository, tmpdir_facto
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
     # Refresh issue object
     issue.update()
@@ -170,8 +169,8 @@ def test_notify_01_template_build_failure(token, github_repository, tmpdir_facto
     )
 
 
-def test_notify_02_iso_build_success_upload(token, github_repository, tmpdir_factory):
-    tmpdir = tmpdir_factory.mktemp("github-")
+def test_notify_02_iso_build_success_upload(token, github_repository, workdir):
+    tmpdir, env = workdir
     build_log = "dummy"
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
     distribution = "host-fc42"
@@ -194,7 +193,7 @@ def test_notify_02_iso_build_success_upload(token, github_repository, tmpdir_fac
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
     issue_title = f"iso 4.2.{timestamp} (r4.2)"
     issue_desc = f"""ISO 4.2.{timestamp} for Qubes OS r4.2, see comments below for details and build status.
@@ -232,7 +231,7 @@ For more information on how to test this update, please take a look at https://w
         str(tmpdir / "state_file"),
         str(tmpdir / "stable_state_file"),
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
     # Refresh issue object
     issue.update()
@@ -250,8 +249,8 @@ For more information on how to test this update, please take a look at https://w
     )
 
 
-def test_notify_03_iso_build_failure(token, github_repository, tmpdir_factory):
-    tmpdir = tmpdir_factory.mktemp("github-")
+def test_notify_03_iso_build_failure(token, github_repository, workdir):
+    tmpdir, env = workdir
     build_log = "dummy"
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
     distribution = "host-fc42"
@@ -274,7 +273,7 @@ def test_notify_03_iso_build_failure(token, github_repository, tmpdir_factory):
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
     issue_title = f"iso 4.2.{timestamp} (r4.2)"
     issue = get_issue(issue_title=issue_title, repository=github_repository)
@@ -296,7 +295,7 @@ def test_notify_03_iso_build_failure(token, github_repository, tmpdir_factory):
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
     # Refresh issue object
     issue.update()
@@ -311,10 +310,8 @@ def test_notify_03_iso_build_failure(token, github_repository, tmpdir_factory):
     assert comments[0].body == f"ISO for r4.2 failed to build ([build log](dummy))."
 
 
-def test_notify_04_component_build_success_upload(
-    token, github_repository, tmpdir_factory
-):
-    tmpdir = tmpdir_factory.mktemp("github-")
+def test_notify_04_component_build_success_upload(token, github_repository, workdir):
+    tmpdir, env = workdir
     build_log = "dummy"
     distribution = "vm-fc42"
     package_name = "core-admin-linux"
@@ -351,7 +348,7 @@ def test_notify_04_component_build_success_upload(
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
     # FIXME: improve generation of expected desc?
     issue_desc = f"""Update of {package_name} to v4.2.6 for Qubes OS r4.2, see comments below for details and build status.
@@ -423,7 +420,7 @@ For more information on how to test this update, please take a look at https://w
         str(tmpdir / "state_file"),
         str(tmpdir / "stable_state_file"),
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
     # Refresh issue object
     issue.update()

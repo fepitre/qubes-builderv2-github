@@ -1,11 +1,12 @@
 import os
-import shutil
-import subprocess
 import random
+import shutil
 import string
+import subprocess
 from pathlib import Path
-from github import Github
+
 import pytest
+from github import Github
 
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"

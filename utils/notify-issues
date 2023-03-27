@@ -547,7 +547,7 @@ def main():
             "templates-itl-testing",
             "templates-community",
             "templates-community-testing",
-            "isos-testing",
+            "iso-testing",
         ],
     )
     upload_parser.add_argument(
@@ -623,7 +623,7 @@ def main():
     add_labels = []
     delete_labels = []
     repo_type = None
-    if args.package_name.startswith("iso"):
+    if args.package_name.startswith("iso") or args.package_name.startswith("qubes-template"):
         prefix_label = f"{args.release_name}"
     else:
         prefix_label = f"{args.release_name}-{dist_label}"
@@ -664,7 +664,7 @@ def main():
         repository_url = None
         build_status = args.status
         if build_status == "failed":
-            add_labels = [f"-failed"]
+            add_labels = [f"{prefix_label}-failed"]
             delete_labels = [f"{prefix_label}-building"]
         elif build_status == "building":
             add_labels = [f"{prefix_label}-building"]

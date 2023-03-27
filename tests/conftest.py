@@ -1,12 +1,41 @@
 import os
+import random
 import shutil
+import string
 import subprocess
 from pathlib import Path
 
 import pytest
+from github import Github
 
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
+
+
+def get_random_string(length):
+    letters = string.ascii_lowercase
+    result_str = "".join(random.choice(letters) for _ in range(length))
+    return result_str
+
+
+@pytest.fixture(scope="session")
+def token():
+    github_api_key = os.environ.get("GITHUB_API_KEY")
+    if not github_api_key:
+        raise ValueError("Cannot find GITHUB_API_TOKEN.")
+    return github_api_key
+
+
+@pytest.fixture(scope="session")
+def github_repository(token):
+    g = Github(token)
+    user = g.get_user()
+    if user.login != "fepitre2-bot":
+        raise ValueError(f"Unexpected user '{user}'.")
+    repo_name = f"tests-{get_random_string(16)}"
+    repo = user.create_repo(repo_name)
+    yield repo
+    repo.delete()
 
 
 @pytest.fixture(scope="session")

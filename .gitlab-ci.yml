@@ -6,6 +6,10 @@ variables:
 
 .pytest:
   stage: test
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "test"
+      when: always
+    - when: manual
   tags:
     - qubes
   artifacts:
@@ -35,8 +39,17 @@ test_rpc:
   script:
     - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_rpc.py
 
+test_notify:
+  extends: .pytest
+  script:
+    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_notify.py
+
 mypy:
   stage: test
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "test"
+      when: always
+    - when: manual
   image: fedora:latest
   tags:
     - docker

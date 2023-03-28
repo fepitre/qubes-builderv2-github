@@ -920,17 +920,25 @@ class AutoActionISO(BaseAutoAction):
                 )
 
                 additional_info = None
-                server = self.config.get("openqa", {}).get("server", "openqa.qubes-os.org")
-                key = self.config.get("openqa", {}).get("key", None)
-                secret = self.config.get("openqa", {}).get("secret", None)
+                server = (
+                    self.config.get("github", {})
+                    .get("openqa", {})
+                    .get("server", "openqa.qubes-os.org")
+                )
+                key = self.config.get("github", {}).get("openqa", {}).get("key", None)
+                secret = (
+                    self.config.get("github", {}).get("openqa", {}).get("secret", None)
+                )
                 if all([key, secret, OpenQA_Client, OpenQAClientError]):
                     openqa_client_path = Path.home() / ".config/openqa/client.conf"
                     openqa_client_path.parent.mkdir(parents=True, exist_ok=True)
                     with open(openqa_client_path, "w") as f:
-                        f.write(f"""[{server}]
+                        f.write(
+                            f"""[{server}]
 key = {key}
 secret = {secret}
-""")
+"""
+                        )
                     try:
                         version = self.qubes_release.lstrip("r")
                         client = OpenQA_Client(server=server)
@@ -949,6 +957,11 @@ secret = {secret}
                             )
                     except OpenQAClientError as exc:
                         log.error(str(exc))
+                else:
+                    log.info(
+                        "Cannot trigger openQA. Check if 'python3-openqa_client' is installed,"
+                        " 'github:openqa:key' and 'github:openqa:secret' are set into builder.yml"
+                    )
 
                 self.notify_upload_status(
                     build_log_file, additional_info=additional_info

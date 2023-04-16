@@ -65,6 +65,8 @@ from qubesbuilder.plugins import PluginError
 from qubesbuilder.plugins.template import TEMPLATE_VERSION
 from qubesbuilder.pluginmanager import PluginManager
 
+from urllib.parse import urljoin
+
 PROJECT_PATH = Path(__file__).resolve().parent
 
 log = init_logging(level="DEBUG")
@@ -120,7 +122,7 @@ class BaseAutoAction(ABC):
         self.qubes_release = self.config.get("qubes-release")
         self.commit_sha = commit_sha
         self.repository_publish = repository_publish
-        self.dry_run = False
+        self.dry_run = dry_run
 
         if not self.builder_dir.exists():
             raise AutoActionError(
@@ -165,7 +167,12 @@ class BaseAutoAction(ABC):
         log.debug("> starting build with log")
         self.display_head_info(args)
         try:
-            func(*args, **kwargs)
+            if self.dry_run:
+                log.debug(f"[DRY-RUN] func: {func.__func__.__qualname__}")
+                log.debug(f"[DRY-RUN] args: {args}")
+                log.debug(f"[DRY-RUN] kwargs: {kwargs}")
+            else:
+                func(*args, **kwargs)
             log.debug("> done")
         except PluginError as e:
             raise AutoActionError(e.args, log_file=self.local_log_file) from e
@@ -218,6 +225,17 @@ class BaseAutoAction(ABC):
     def notify_build_status_on_timeout(self):
         pass
 
+    def notify_github(self, notify_issues_cmd, build_target, env):
+        try:
+            if self.dry_run:
+                log.debug(f"[DRY-RUN] cmd: {notify_issues_cmd}")
+                log.debug(f"[DRY-RUN] env: {env}")
+            else:
+                subprocess.run(notify_issues_cmd, env=env)
+        except subprocess.CalledProcessError as e:
+            msg = f"{build_target}: Failed to notify GitHub: {str(e)}"
+            log.error(msg)
+
 
 class AutoAction(BaseAutoAction):
     def __init__(
@@ -230,6 +248,7 @@ class AutoAction(BaseAutoAction):
         commit_sha,
         repository_publish,
         local_log_file,
+        dry_run,
     ):
         super().__init__(
             builder_dir=builder_dir,
@@ -238,6 +257,7 @@ class AutoAction(BaseAutoAction):
             commit_sha=commit_sha,
             repository_publish=repository_publish,
             local_log_file=local_log_file,
+            dry_run=dry_run,
         )
 
         self.component = component
@@ -311,11 +331,11 @@ class AutoAction(BaseAutoAction):
             status,
         ]
 
-        try:
-            subprocess.run(notify_issues_cmd, env=self.env)
-        except subprocess.CalledProcessError as e:
-            msg = f"{self.component.name}:{dist}: Failed to notify GitHub: {str(e)}"
-            log.error(msg)
+        self.notify_github(
+            notify_issues_cmd=notify_issues_cmd,
+            build_target=f"{self.component.name}:{dist}",
+            env=self.env,
+        )
 
     def notify_upload_status(self, dist, log_file=None, additional_info=None):
         notify_issues_cmd = [
@@ -353,11 +373,11 @@ class AutoAction(BaseAutoAction):
             str(stable_state_file),
         ]
 
-        try:
-            subprocess.run(notify_issues_cmd, env=self.env)
-        except subprocess.CalledProcessError as e:
-            msg = f"{self.component.name}:{dist}: Failed to notify GitHub: {str(e)}"
-            log.error(msg)
+        self.notify_github(
+            notify_issues_cmd=notify_issues_cmd,
+            build_target=f"{self.component.name}:{dist}",
+            env=self.env,
+        )
 
     def display_head_info(self, args):
         log.debug(f">> args:")
@@ -510,6 +530,7 @@ class AutoActionTemplate(BaseAutoAction):
         commit_sha,
         repository_publish,
         local_log_file,
+        dry_run,
     ):
         super().__init__(
             builder_dir=builder_dir,
@@ -518,6 +539,7 @@ class AutoActionTemplate(BaseAutoAction):
             commit_sha=commit_sha,
             repository_publish=repository_publish,
             local_log_file=local_log_file,
+            dry_run=dry_run,
         )
 
         try:
@@ -593,11 +615,11 @@ class AutoActionTemplate(BaseAutoAction):
             status,
         ]
 
-        try:
-            subprocess.run(notify_issues_cmd, env=self.env)
-        except subprocess.CalledProcessError as e:
-            msg = f"{template}: Failed to notify GitHub: {str(e)}"
-            log.error(msg)
+        self.notify_github(
+            notify_issues_cmd=notify_issues_cmd,
+            build_target=template,
+            env=self.env,
+        )
 
     def notify_upload_status(self, log_file=None, additional_info=None):
         notify_issues_cmd = [
@@ -638,11 +660,11 @@ class AutoActionTemplate(BaseAutoAction):
             str(stable_state_file),
         ]
 
-        try:
-            subprocess.run(notify_issues_cmd, env=self.env)
-        except subprocess.CalledProcessError as e:
-            msg = f"{template}: Failed to notify GitHub: {str(e)}"
-            log.error(msg)
+        self.notify_github(
+            notify_issues_cmd=notify_issues_cmd,
+            build_target=template,
+            env=self.env,
+        )
 
     def build(self):
         timestamp_file = (
@@ -760,6 +782,7 @@ class AutoActionISO(BaseAutoAction):
         commit_sha,
         repository_publish,
         local_log_file,
+        dry_run,
         is_final=False,
     ):
         super().__init__(
@@ -769,6 +792,7 @@ class AutoActionISO(BaseAutoAction):
             commit_sha=commit_sha,
             repository_publish=repository_publish,
             local_log_file=local_log_file,
+            dry_run=dry_run,
         )
 
         self.timeout = self.config.get("timeout", 21600)
@@ -843,11 +867,11 @@ class AutoActionISO(BaseAutoAction):
             status,
         ]
 
-        try:
-            subprocess.run(notify_issues_cmd, env=self.env)
-        except subprocess.CalledProcessError as e:
-            msg = f"{package_name}: Failed to notify GitHub: {str(e)}"
-            log.error(msg)
+        self.notify_github(
+            notify_issues_cmd=notify_issues_cmd,
+            build_target=package_name,
+            env=self.env,
+        )
 
     def notify_upload_status(self, log_file=None, additional_info=None):
         notify_issues_cmd = [
@@ -888,14 +912,47 @@ class AutoActionISO(BaseAutoAction):
         if self.iso_base_url:
             notify_issues_cmd += [
                 "--repository-url",
-                self.iso_base_url / self.repository_publish,
+                urljoin(self.iso_base_url, self.repository_publish),
             ]
 
+        self.notify_github(
+            notify_issues_cmd=notify_issues_cmd,
+            build_target=package_name,
+            env=self.env,
+        )
+
+    def trigger_openqa(self):
+        openqa_client_path = (Path.home() / ".config/openqa/client.conf").resolve()
+        if not openqa_client_path.exists():
+            log.debug(f"Cannot find openQA configuration file: {openqa_client_path}")
+            return
+        if not (OpenQA_Client and OpenQAClientError and callable(OpenQA_Client)):
+            log.debug(
+                "Cannot trigger openQA. Check if 'python3-openqa_client' is installed."
+            )
+            return
         try:
-            subprocess.run(notify_issues_cmd, env=self.env)
-        except subprocess.CalledProcessError as e:
-            msg = f"{package_name}: Failed to notify GitHub: {str(e)}"
-            log.error(msg)
+            version = self.qubes_release.lstrip("r")
+            url = urljoin(self.iso_base_url, self.repository_publish)
+            params = {
+                "DISTRI": "qubesos",
+                "VERSION": version,
+                "FLAVOR": "install-iso",
+                "ARCH": "x86_64",
+                "BUILD": self.iso_version,
+                "ISO_URL": f"{url}/Qubes-{self.iso_version}-x86_64.iso",
+            }
+            log.debug(f"openQA request: {params}")
+            job_url = f"https://openqa.qubes-os.org/tests/overview?distri=qubesos&version={version}&build={self.iso_version}&groupid=1"
+            log.debug(f"openQA job url: {job_url}")
+            if self.dry_run:
+                return
+            client = OpenQA_Client()
+            if client.openqa_request("POST", "isos", params):
+                additional_info = f"see [openQA]({job_url}) test result overview"
+                return additional_info
+        except OpenQAClientError as exc:
+            log.error(str(exc))
 
     def upload(self):
         raise NotImplementedError
@@ -919,35 +976,11 @@ class AutoActionISO(BaseAutoAction):
                     stages=["upload"],
                 )
 
-                additional_info = None
-                openqa_client_path = Path.home() / ".config/openqa/client.conf"
-                if all([openqa_client_path.exists(), OpenQA_Client, OpenQAClientError]):
-                    try:
-                        version = self.qubes_release.lstrip("r")
-                        client = OpenQA_Client()
-                        params = {
-                            "DISTRI": "qubesos",
-                            "VERSION": version,
-                            "FLAVOR": "install-iso",
-                            "ARCH": "x86_64",
-                            "BUILD": self.iso_version,
-                            "ISO_URL": f"{self.iso_base_url}/{self.repository_publish}/Qubes-{self.iso_version}-x86_64.iso",
-                        }
-                        if client.openqa_request("POST", "isos", params):
-                            job_url = f"https://openqa.qubes-os.org/tests/overview?distri=qubesos&version={version}&build={self.iso_version}&groupid=1"
-                            additional_info = (
-                                f"see [openQA]({job_url}) test result overview"
-                            )
-                    except OpenQAClientError as exc:
-                        log.error(str(exc))
-                else:
-                    log.info(
-                        "Cannot trigger openQA. Check if 'python3-openqa_client' is installed,"
-                        " 'github:openqa:key' and 'github:openqa:secret' are set into builder.yml"
-                    )
+                additional_info = self.trigger_openqa()
 
                 self.notify_upload_status(
-                    build_log_file, additional_info=additional_info
+                    build_log_file,
+                    additional_info=additional_info,
                 )
 
             except AutoActionError as autobuild_exc:
@@ -980,6 +1013,7 @@ def main():
         "--signer-fpr",
         help="Signer GitHub command fingerprint.",
     )
+    parser.add_argument("--dry-run", action="store_true", default=False)
     parser.add_argument("--state-dir", default=Path.home() / "github-notify-state")
     parser.add_argument(
         "--local-log-file",
@@ -1119,6 +1153,7 @@ def main():
                     commit_sha=commit_sha,
                     repository_publish=repository_publish,
                     local_log_file=local_log_file,
+                    dry_run=args.dry_run,
                 )
             )
     elif args.command in ("build-template", "upload-template"):
@@ -1148,6 +1183,7 @@ def main():
                 commit_sha=commit_sha,
                 repository_publish=repository_publish,
                 local_log_file=local_log_file,
+                dry_run=args.dry_run,
             )
         )
     elif args.command == "build-iso":
@@ -1171,6 +1207,7 @@ def main():
                 commit_sha=commit_sha,
                 repository_publish=repository_publish,
                 local_log_file=local_log_file,
+                dry_run=args.dry_run,
             )
         )
     else:

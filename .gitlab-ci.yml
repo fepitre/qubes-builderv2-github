@@ -17,7 +17,7 @@ variables:
     paths:
       - results
   before_script:
-    - sudo dnf install -y python3-pathspec sequoia-sqv
+    - sudo dnf install -y python3-pathspec sequoia-sqv python3-pytest
   after_script:
     - mkdir $CI_PROJECT_DIR/results
     - cp -r ~/pytest-of-user/pytest-current/github-current/*.log $CI_PROJECT_DIR/results || true

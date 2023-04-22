@@ -64,7 +64,7 @@ repository-upload-remote-host:
 executor:
   type: qubes
   options:
-    dispvm: "qubes-builder-dvm"
+    dispvm: "builder-dvm"
 """
         )
 

@@ -912,7 +912,7 @@ class AutoActionISO(BaseAutoAction):
         if self.iso_base_url:
             notify_issues_cmd += [
                 "--repository-url",
-                urljoin(self.iso_base_url, self.repository_publish),
+                f"{urljoin(self.iso_base_url, self.repository_publish)}/",
             ]
 
         self.notify_github(

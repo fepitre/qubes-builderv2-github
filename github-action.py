@@ -62,7 +62,6 @@ from qubesbuilder.exc import ConfigError
 from qubesbuilder.log import init_logging
 from qubesbuilder.component import ComponentError
 from qubesbuilder.plugins import PluginError
-from qubesbuilder.plugins.template import TEMPLATE_VERSION
 from qubesbuilder.pluginmanager import PluginManager
 
 from urllib.parse import urljoin
@@ -547,6 +546,7 @@ class AutoActionTemplate(BaseAutoAction):
         except ConfigError as e:
             raise AutoActionError(f"No such template '{template_name}'.") from e
         self.template_timestamp = template_timestamp
+        self.template_version = self.config.qubes_release.lstrip("r") + ".0"
 
         self.repository_publish = repository_publish or self.config.get(
             "repository-publish", {}
@@ -604,7 +604,7 @@ class AutoActionTemplate(BaseAutoAction):
             notify_issues_cmd += [f"--additional-info={str(additional_info)}"]
 
         template = self.templates[0]
-        package_name = f"qubes-template-{template.name}-{TEMPLATE_VERSION}-{self.template_timestamp}"
+        package_name = f"qubes-template-{template.name}-{self.template_version}-{self.template_timestamp}"
 
         notify_issues_cmd += [
             stage,
@@ -637,7 +637,7 @@ class AutoActionTemplate(BaseAutoAction):
             notify_issues_cmd += [f"--additional-info={str(additional_info)}"]
 
         template = self.templates[0]
-        package_name = f"qubes-template-{template.name}-{TEMPLATE_VERSION}-{self.template_timestamp}"
+        package_name = f"qubes-template-{template.name}-{self.template_version}-{self.template_timestamp}"
 
         state_file = (
             self.state_dir
@@ -745,9 +745,9 @@ class AutoActionTemplate(BaseAutoAction):
             raise AutoActionError(
                 f"Failed to read or parse timestamp: {str(exc)}"
             ) from exc
-        if self.commit_sha != f"{TEMPLATE_VERSION}-{timestamp_existing}":
+        if self.commit_sha != f"{self.template_version}-{timestamp_existing}":
             raise AutoActionError(
-                f"Different template was built in the meantime (current: {TEMPLATE_VERSION}-{timestamp_existing})"
+                f"Different template was built in the meantime (current: {self.template_version}-{timestamp_existing})"
             )
         with timeout(self.timeout):
             try:

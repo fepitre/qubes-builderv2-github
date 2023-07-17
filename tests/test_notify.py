@@ -11,6 +11,7 @@ DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
 def test_notify_00_template_build_success_upload(token, github_repository, workdir):
     tmpdir, env = workdir
     build_log = "dummy"
+    # We need seconds because we create multiple issues successively.
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
     template_name = "fedora-42"
     package_name = f"qubes-template-{template_name}-4.2.0-{timestamp}"

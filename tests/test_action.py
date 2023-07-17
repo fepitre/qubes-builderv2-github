@@ -230,11 +230,11 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
 
 
 def _build_template_check(tmpdir):
-    assert (tmpdir / f"artifacts/templates/debian-11.publish.yml").exists()
+    assert (tmpdir / f"artifacts/templates/debian-11-minimal.publish.yml").exists()
 
 
 def _fix_template_timestamp_repo(tmpdir):
-    artifacts_path = tmpdir / f"artifacts/templates/debian-11.publish.yml"
+    artifacts_path = tmpdir / f"artifacts/templates/debian-11-minimal.publish.yml"
     info = yaml.safe_load(artifacts_path.read())
     publish_timestamp = None
     for repo in info["repository-publish"]:
@@ -264,7 +264,7 @@ def _upload_template_check(tmpdir):
 
     # host-fc37
     rpms = [
-        f"qubes-template-debian-11-4.1.0-{build_timestamp}.noarch.rpm",
+        f"qubes-template-debian-11-minimal-4.2.0-{build_timestamp}.noarch.rpm",
     ]
     for repository in ["templates-itl-testing", "templates-itl"]:
         repository_dir = (
@@ -507,14 +507,14 @@ def test_action_build_template(token, github_repository, workdir):
         "build-template",
         f"{tmpdir}/qubes-builderv2",
         f"{tmpdir}/builder.yml",
-        "debian-11",
+        "debian-11-minimal",
         timestamp,
     ]
     subprocess.run(cmd, check=True, env=env, capture_output=True)
     _build_template_check(tmpdir)
 
     labels, comments = get_labels_and_comments(
-        f"qubes-template-debian-11 4.2.0-{timestamp} (r4.2)",
+        f"qubes-template-debian-11-minimal 4.2.0-{timestamp} (r4.2)",
         github_repository,
     )
 
@@ -523,8 +523,8 @@ def test_action_build_template(token, github_repository, workdir):
 
     # Check that comments exist
     assert comments == {
-        f"Template debian-11-4.2.0-{timestamp} was built ([build log]({tmpdir / 'build-template.log'})).",
-        f"Template debian-11-4.2.0-{timestamp} was uploaded to templates-itl-testing repository.",
+        f"Template debian-11-minimal-4.2.0-{timestamp} was built ([build log]({tmpdir / 'build-template.log'})).",
+        f"Template debian-11-minimal-4.2.0-{timestamp} was uploaded to templates-itl-testing repository.",
     }
 
 
@@ -554,15 +554,15 @@ def test_action_upload_template(token, github_repository, workdir):
         "upload-template",
         f"{tmpdir}/qubes-builderv2",
         f"{tmpdir}/builder.yml",
-        "debian-11",
-        f"4.1.0-{build_timestamp}",
+        "debian-11-minimal",
+        f"4.2.0-{build_timestamp}",
         "templates-itl",
     ]
     subprocess.run(cmd, check=True, env=env, capture_output=True)
     _upload_template_check(tmpdir)
 
     labels, comments = get_labels_and_comments(
-        f"qubes-template-debian-11 4.2.0-{build_timestamp} (r4.2)",
+        f"qubes-template-debian-11-minimal 4.2.0-{build_timestamp} (r4.2)",
         github_repository,
     )
 
@@ -571,9 +571,9 @@ def test_action_upload_template(token, github_repository, workdir):
 
     # Check that comments exist
     assert comments == {
-        f"Template debian-11-4.2.0-{build_timestamp} was built ([build log]({tmpdir / 'build-template.log'})).",
-        f"Template debian-11-4.2.0-{build_timestamp} was uploaded to templates-itl-testing repository.",
-        f"Template debian-11-4.2.0-{build_timestamp} was uploaded to templates-itl repository.",
+        f"Template debian-11-minimal-4.2.0-{build_timestamp} was built ([build log]({tmpdir / 'build-template.log'})).",
+        f"Template debian-11-minimal-4.2.0-{build_timestamp} was uploaded to templates-itl-testing repository.",
+        f"Template debian-11-minimal-4.2.0-{build_timestamp} was uploaded to templates-itl repository.",
     }
 
 

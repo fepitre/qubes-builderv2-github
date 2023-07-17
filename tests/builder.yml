@@ -14,6 +14,7 @@ github:
       templates:
         - fedora-35-xfce
         - debian-11
+        - debian-11-minimal
     632F8C69E01B25C9E0C3ADF2F360C0D259FB650C:
       iso: true
       components: _all_
@@ -52,6 +53,12 @@ templates:
       options:
         - standard
         - firmware
+      timeout: 7200
+  - debian-11-minimal:
+      dist: bullseye
+      flavor: minimal
+      options:
+        - no-recommends
       timeout: 7200
   - whonix-gateway-16:
       dist: bullseye
@@ -104,7 +111,6 @@ components:
       url: https://github.com/QubesOS/qubes-app-linux-input-proxy
       branch: v1.0.28
   - grub2:
-      url: https://github.com/QubesOS/qubes-grub2
       branch: v2.06-2
   - builder-rpm:
       packages: False

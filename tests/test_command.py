@@ -165,7 +165,7 @@ def test_command_03_upload_template(workdir):
 
     # Write command
     with open(f"{tmpdir}/command", "w") as f:
-        f.write(f"Upload-template r4.2 debian-11 4.1.0-{timestamp} templates-itl")
+        f.write(f"Upload-template r4.2 debian-11 4.2.0-{timestamp} templates-itl")
 
     # Dry-run
     set_dry_run(f"{tmpdir}/builder.yml")
@@ -185,7 +185,7 @@ def test_command_03_upload_template(workdir):
     all_processes = get_all_processes()
     for b in builders_list:
         release, builder_dir, builder_conf = b
-        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-action.py --signer-fpr {FEPITRE_FPR} upload-template {builder_dir} {builder_conf} debian-11 4.1.0-{timestamp} templates-itl"
+        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-action.py --signer-fpr {FEPITRE_FPR} upload-template {builder_dir} {builder_conf} debian-11 4.2.0-{timestamp} templates-itl"
         if not find_github_action(all_processes, cmdline):
             raise ValueError(f"{cmdline}: cannot find process.")
 

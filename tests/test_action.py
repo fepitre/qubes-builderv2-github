@@ -1,4 +1,5 @@
 import datetime
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -6,11 +7,20 @@ from pathlib import Path
 import dnf
 import yaml
 
+from conftest import set_conf_options, get_issue
+
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
 
 FEPITRE_FPR = "9FA64B92F95E706BF28E2CA6484010B5CDC576E2"
 TESTUSER_FPR = "632F8C69E01B25C9E0C3ADF2F360C0D259FB650C"
+
+
+def get_labels_and_comments(issue_title, github_repository):
+    issue = get_issue(issue_title=issue_title, repository=github_repository)
+    labels = [label.name for label in issue.labels]
+    comments = set([comment.body for comment in issue.get_comments()])
+    return labels, comments
 
 
 # From fepitre/qubes-builderv2/tests/test_cli.py
@@ -89,6 +99,29 @@ def _build_component_check_multi(tmpdir):
     ).exists
 
 
+def _fix_timestamp_artifacts_path(artifacts_path):
+    info = yaml.safe_load(artifacts_path.read())
+
+    timestamp = None
+    for repo in info["repository-publish"]:
+        if repo["name"] == "current-testing":
+            timestamp = datetime.datetime.strptime(repo["timestamp"], "%Y%m%d%H%M")
+            break
+
+    if not timestamp:
+        raise ValueError("Cannot find timestamp value.")
+
+    for repo in info["repository-publish"]:
+        if repo["name"] == "current-testing":
+            repo["timestamp"] = (timestamp - datetime.timedelta(days=7)).strftime(
+                "%Y%m%d%H%M"
+            )
+            break
+
+    with open(artifacts_path, "w") as f:
+        f.write(yaml.dump(info))
+
+
 def _fix_timestamp_repo(tmpdir):
     for distribution in ["host-fc37", "vm-bullseye", "vm-fc36"]:
         if distribution == "host-fc37":
@@ -106,26 +139,7 @@ def _fix_timestamp_repo(tmpdir):
                 tmpdir
                 / f"artifacts/components/app-linux-split-gpg/2.0.60-1/{distribution}/publish/rpm_spec_gpg-split.spec.publish.yml"
             )
-        info = yaml.safe_load(artifacts_path.read())
-
-        timestamp = None
-        for repo in info["repository-publish"]:
-            if repo["name"] == "current-testing":
-                timestamp = datetime.datetime.strptime(repo["timestamp"], "%Y%m%d%H%M")
-                break
-
-        if not timestamp:
-            raise ValueError("Cannot find timestamp value.")
-
-        for repo in info["repository-publish"]:
-            if repo["name"] == "current-testing":
-                repo["timestamp"] = (timestamp - datetime.timedelta(days=7)).strftime(
-                    "%Y%m%d%H%M"
-                )
-                break
-
-        with open(artifacts_path, "w") as f:
-            f.write(yaml.dump(info))
+        _fix_timestamp_artifacts_path(artifacts_path)
 
 
 def _upload_component_check(tmpdir, with_input_proxy=False):
@@ -273,9 +287,17 @@ def _build_iso_check(tmpdir, timestamp):
     assert timestamp == latest_timestamp
 
 
-def test_action_build_component(workdir):
+def test_action_build_component(token, github_repository, workdir):
     tmpdir, env = workdir
-
+    set_conf_options(
+        tmpdir / "builder.yml",
+        {
+            "github": {
+                "api-key": token,
+                "build-report-repo": github_repository.full_name,
+            }
+        },
+    )
     cmd = [
         str(PROJECT_PATH / "github-action.py"),
         "--local-log-file",
@@ -286,8 +308,29 @@ def test_action_build_component(workdir):
         f"{tmpdir}/builder.yml",
         "app-linux-split-gpg",
     ]
-    subprocess.run(cmd, check=True, env=env)
+    subprocess.run(cmd, check=True, env=env, capture_output=True)
     _build_component_check(tmpdir)
+
+    labels, comments = get_labels_and_comments(
+        "app-linux-split-gpg v2.0.60 (r4.2)", github_repository
+    )
+
+    # Check that labels exist
+    assert set(labels) == {
+        "r4.2-host-cur-test",
+        "r4.2-vm-fc36-cur-test",
+        "r4.2-vm-bullseye-cur-test",
+    }
+
+    # Check that comments exist
+    assert comments == {
+        f"Package for host was built ([build log]({tmpdir / 'build-component.log'})).",
+        f"Package for vm-fc36 was built ([build log]({tmpdir / 'build-component.log'})).",
+        f"Package for vm-bullseye was built ([build log]({tmpdir / 'build-component.log'})).",
+        "Package for host was uploaded to current-testing repository.",
+        "Package for vm-fc36 was uploaded to current-testing repository.",
+        "Package for vm-bullseye was uploaded to current-testing repository.",
+    }
 
 
 def test_action_build_component_multi(workdir):
@@ -304,7 +347,7 @@ def test_action_build_component_multi(workdir):
         f"{tmpdir}/builder.yml",
         "app-linux-input-proxy",
     ]
-    subprocess.run(cmd, check=True, env=env)
+    subprocess.run(cmd, check=True, env=env, capture_output=True)
 
     _build_component_check_multi(tmpdir)
 
@@ -327,7 +370,7 @@ def test_action_upload_component(workdir):
         "--distribution",
         "vm-bullseye",
     ]
-    subprocess.run(cmd, check=True, env=env)
+    subprocess.run(cmd, check=True, env=env, capture_output=True)
 
     _fix_timestamp_repo(tmpdir)
 
@@ -346,12 +389,98 @@ def test_action_upload_component(workdir):
         "--distribution",
         "all",
     ]
-    subprocess.run(cmd, check=True, env=env)
+    subprocess.run(cmd, check=True, env=env, capture_output=True)
     _upload_component_check(tmpdir, with_input_proxy=True)
 
 
-def test_action_build_template(workdir):
+def test_action_build_and_upload_component_host_only(token, github_repository, workdir):
     tmpdir, env = workdir
+    set_conf_options(
+        tmpdir / "builder.yml",
+        {
+            "github": {
+                "api-key": token,
+                "build-report-repo": github_repository.full_name,
+            }
+        },
+    )
+
+    cmd = [
+        str(PROJECT_PATH / "github-action.py"),
+        "--local-log-file",
+        f"{tmpdir}/build-component.log",
+        "--no-signer-github-command-check",
+        "build-component",
+        f"{tmpdir}/qubes-builderv2",
+        f"{tmpdir}/builder.yml",
+        "grub2",
+    ]
+    subprocess.run(cmd, check=True, env=env, capture_output=True)
+
+    cmd = [
+        str(PROJECT_PATH / "github-action.py"),
+        "--local-log-file",
+        f"{tmpdir}/upload-component.log",
+        "--no-signer-github-command-check",
+        "upload-component",
+        f"{tmpdir}/qubes-builderv2",
+        f"{tmpdir}/builder.yml",
+        "grub2",
+        "2596baff182a035a34d76ec3551464f88f7b6c03",
+        "security-testing",
+        "--distribution",
+        "host-fc37",
+    ]
+    subprocess.run(cmd, check=True, env=env, capture_output=True)
+
+    _fix_timestamp_artifacts_path(
+        tmpdir
+        / "artifacts/components/grub2/2.06-2/host-fc37/publish/grub2.spec.publish.yml"
+    )
+
+    cmd = [
+        str(PROJECT_PATH / "github-action.py"),
+        "--local-log-file",
+        f"{tmpdir}/upload-component.log",
+        "--no-signer-github-command-check",
+        "upload-component",
+        f"{tmpdir}/qubes-builderv2",
+        f"{tmpdir}/builder.yml",
+        "grub2",
+        "2596baff182a035a34d76ec3551464f88f7b6c03",
+        "current",
+        "--distribution",
+        "all",
+    ]
+    subprocess.run(cmd, check=True, env=env, capture_output=True)
+
+    labels, comments = get_labels_and_comments(
+        "grub2 v2.06-2 (r4.2)", github_repository
+    )
+
+    # Check that labels exist
+    assert set(labels) == {"r4.2-host-stable"}
+
+    # Check that comments exist
+    assert comments == {
+        f"Package for host was built ([build log]({tmpdir / 'build-component.log'})).",
+        "Package for host was uploaded to current-testing repository.",
+        "Package for host was uploaded to security-testing repository.",
+        "Package for host was uploaded to stable repository.",
+    }
+
+
+def test_action_build_template(token, github_repository, workdir):
+    tmpdir, env = workdir
+    set_conf_options(
+        tmpdir / "builder.yml",
+        {
+            "github": {
+                "api-key": token,
+                "build-report-repo": github_repository.full_name,
+            }
+        },
+    )
 
     # this normally is done by getting "build-component" call for
     # builder-debian component when it gets updated; simulate it here
@@ -363,7 +492,7 @@ def test_action_build_template(workdir):
         "package",
         "fetch",
     ]
-    subprocess.run(cmd, check=True, env=env)
+    subprocess.run(cmd, check=True, env=env, capture_output=True)
 
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
     with open(tmpdir / "timestamp", "w") as f:
@@ -381,12 +510,35 @@ def test_action_build_template(workdir):
         "debian-11",
         timestamp,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    subprocess.run(cmd, check=True, env=env, capture_output=True)
     _build_template_check(tmpdir)
 
+    labels, comments = get_labels_and_comments(
+        f"qubes-template-debian-11 4.2.0-{timestamp} (r4.2)",
+        github_repository,
+    )
 
-def test_action_upload_template(workdir):
+    # Check that labels exist
+    assert set(labels) == {"r4.2-testing"}
+
+    # Check that comments exist
+    assert comments == {
+        f"Template debian-11-4.2.0-{timestamp} was built ([build log]({tmpdir / 'build-template.log'})).",
+        f"Template debian-11-4.2.0-{timestamp} was uploaded to templates-itl-testing repository.",
+    }
+
+
+def test_action_upload_template(token, github_repository, workdir):
     tmpdir, env = workdir
+    set_conf_options(
+        tmpdir / "builder.yml",
+        {
+            "github": {
+                "api-key": token,
+                "build-report-repo": github_repository.full_name,
+            }
+        },
+    )
 
     with open(tmpdir / "timestamp", "r") as f:
         build_timestamp = f.read().rstrip("\n")
@@ -406,12 +558,36 @@ def test_action_upload_template(workdir):
         f"4.1.0-{build_timestamp}",
         "templates-itl",
     ]
-    subprocess.run(cmd, check=True, env=env)
+    subprocess.run(cmd, check=True, env=env, capture_output=True)
     _upload_template_check(tmpdir)
 
+    labels, comments = get_labels_and_comments(
+        f"qubes-template-debian-11 4.2.0-{build_timestamp} (r4.2)",
+        github_repository,
+    )
 
-def test_action_build_iso(workdir):
+    # Check that labels exist
+    assert set(labels) == {"r4.2-stable"}
+
+    # Check that comments exist
+    assert comments == {
+        f"Template debian-11-4.2.0-{build_timestamp} was built ([build log]({tmpdir / 'build-template.log'})).",
+        f"Template debian-11-4.2.0-{build_timestamp} was uploaded to templates-itl-testing repository.",
+        f"Template debian-11-4.2.0-{build_timestamp} was uploaded to templates-itl repository.",
+    }
+
+
+def test_action_build_iso(token, github_repository, workdir):
     tmpdir, env = workdir
+    set_conf_options(
+        tmpdir / "builder.yml",
+        {
+            "github": {
+                "api-key": token,
+                "build-report-repo": github_repository.full_name,
+            }
+        },
+    )
 
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
     with open(tmpdir / "timestamp", "w") as f:
@@ -429,5 +605,19 @@ def test_action_build_iso(workdir):
         f"4.2.{timestamp}",
         timestamp,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    subprocess.run(cmd, check=True, env=env, capture_output=True)
     _build_iso_check(tmpdir, timestamp)
+
+    labels, comments = get_labels_and_comments(
+        f"iso 4.2.{timestamp} (r4.2)",
+        github_repository,
+    )
+
+    # Check that labels exist
+    assert set(labels) == {"r4.2-testing"}
+
+    # Check that comments exist
+    assert comments == {
+        f"ISO for r4.2 was built ([build log]({tmpdir}/build-iso.log)).",
+        f"ISO for r4.2 was built was uploaded to testing repository.",
+    }

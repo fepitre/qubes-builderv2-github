@@ -1,19 +1,11 @@
 import datetime
-import os
 import subprocess
 from pathlib import Path
 
+from conftest import get_issue
+
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
-
-
-def get_issue(issue_title, repository):
-    issue = None
-    for i in repository.get_issues():
-        if i.title == issue_title:
-            issue = i
-            break
-    return issue
 
 
 def test_notify_00_template_build_success_upload(token, github_repository, workdir):
@@ -69,6 +61,24 @@ For more information on how to test this update, please take a look at https://w
     assert issue.body == issue_desc
 
     #
+    # built
+    #
+    status = "built"
+    cmd = [
+        str(PROJECT_PATH / "utils/notify-issues"),
+        f"--build-log={build_log}",
+        f"--message-templates-dir={PROJECT_PATH}/templates",
+        f"--github-report-repo-name={github_repository.full_name}",
+        "build",
+        "r4.2",
+        str(tmpdir),
+        package_name,
+        distribution,
+        status,
+    ]
+    subprocess.run(cmd, check=True, env=env)
+
+    #
     # upload
     #
     upload_repository = "templates-itl-testing"
@@ -97,10 +107,14 @@ For more information on how to test this update, please take a look at https://w
 
     # Check that comment exists
     comments = list(issue.get_comments())
-    assert len(comments) == 1
+    assert len(comments) == 2
     assert (
         comments[0].body
-        == f"Package for {distribution} was built ([build log]({build_log})) and uploaded to {upload_repository} repository."
+        == f"Template {template_name}-4.2.0-{timestamp} was built ([build log]({build_log}))."
+    )
+    assert (
+        comments[1].body
+        == f"Template {template_name}-4.2.0-{timestamp} was uploaded to {upload_repository} repository."
     )
 
 
@@ -165,7 +179,7 @@ def test_notify_01_template_build_failure(token, github_repository, workdir):
     assert len(comments) == 1
     assert (
         comments[0].body
-        == f"Package for vm-trixie failed to build ([build log]({build_log}))."
+        == f"Template {template_name}-4.2.0-{timestamp} failed to build ([build log]({build_log}))."
     )
 
 
@@ -214,6 +228,25 @@ For more information on how to test this update, please take a look at https://w
     assert issue.body == issue_desc
 
     #
+    # built
+    #
+
+    status = "built"
+    cmd = [
+        str(PROJECT_PATH / "utils/notify-issues"),
+        f"--build-log={build_log}",
+        f"--message-templates-dir={PROJECT_PATH}/templates",
+        f"--github-report-repo-name={github_repository.full_name}",
+        "build",
+        "r4.2",
+        str(tmpdir),
+        package_name,
+        distribution,
+        status,
+    ]
+    subprocess.run(cmd, check=True, env=env)
+
+    #
     # upload
     #
     upload_repository = "iso-testing"
@@ -242,11 +275,9 @@ For more information on how to test this update, please take a look at https://w
 
     # Check that comment exists
     comments = list(issue.get_comments())
-    assert len(comments) == 1
-    assert (
-        comments[0].body
-        == f"ISO for r4.2 was built ([build log]({build_log})) and uploaded to testing repository."
-    )
+    assert len(comments) == 2
+    assert comments[0].body == f"ISO for r4.2 was built ([build log]({build_log}))."
+    assert comments[1].body == f"ISO for r4.2 was uploaded to testing repository."
 
 
 def test_notify_03_iso_build_failure(token, github_repository, workdir):
@@ -403,6 +434,27 @@ For more information on how to test this update, please take a look at https://w
         fd.write("1178add9fcb18e865b0fc3408cfbd2baa1391024")
 
     #
+    # built
+    #
+    status = "built"
+    cmd = [
+        str(PROJECT_PATH / "utils/notify-issues"),
+        f"--build-log={build_log}",
+        f"--message-templates-dir={PROJECT_PATH}/templates",
+        f"--github-report-repo-name={github_repository.full_name}",
+        "build",
+        "r4.2",
+        str(tmpdir / package_name),
+        package_name,
+        distribution,
+        status,
+    ]
+    subprocess.run(cmd, check=True, env=env)
+
+    # Refresh issue object
+    issue.update()
+
+    #
     # upload
     #
     upload_repository = "current-testing"
@@ -431,8 +483,11 @@ For more information on how to test this update, please take a look at https://w
 
     # Check that comment exists
     comments = list(issue.get_comments())
-    assert len(comments) == 1
+    assert len(comments) == 2
     assert (
-        comments[0].body
-        == f"Package for vm-fc42 was built ([build log]({build_log})) and uploaded to current-testing repository."
+        comments[0].body == f"Package for vm-fc42 was built ([build log]({build_log}))."
+    )
+    assert (
+        comments[1].body
+        == f"Package for vm-fc42 was uploaded to current-testing repository."
     )

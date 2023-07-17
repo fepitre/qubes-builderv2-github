@@ -54,7 +54,6 @@ from qubesbuilder.cli.cli_repository import (
     _publish,
     _upload,
     _check_release_status_for_component,
-    _check_release_status_for_template,
 )
 from qubesbuilder.cli.cli_installer import _installer_stage
 from qubesbuilder.config import Config
@@ -148,13 +147,21 @@ class BaseAutoAction(ABC):
         )
 
     def get_build_log_url(self, log_file):
-        return f"https://github.com/{self.logs_repo}/tree/master/{log_file}"
+        if self.local_log_file:
+            return log_file
+        else:
+            return f"https://github.com/{self.logs_repo}/tree/master/{log_file}"
 
     @staticmethod
     def display_head_info(args):
         pass
 
     def make_with_log(self, func, *args, **kwargs):
+        if self.dry_run:
+            log.debug(f"[DRY-RUN] func: {func.__qualname__}")
+            log.debug(f"[DRY-RUN] args: {args}")
+            log.debug(f"[DRY-RUN] kwargs: {kwargs}")
+            return
         if self.local_log_file:
             return self.make_with_log_local(func, *args, **kwargs)
         else:
@@ -166,12 +173,7 @@ class BaseAutoAction(ABC):
         log.debug("> starting build with log")
         self.display_head_info(args)
         try:
-            if self.dry_run:
-                log.debug(f"[DRY-RUN] func: {func.__func__.__qualname__}")
-                log.debug(f"[DRY-RUN] args: {args}")
-                log.debug(f"[DRY-RUN] kwargs: {kwargs}")
-            else:
-                func(*args, **kwargs)
+            func(*args, **kwargs)
             log.debug("> done")
         except PluginError as e:
             raise AutoActionError(e.args, log_file=self.local_log_file) from e
@@ -401,7 +403,6 @@ class AutoAction(BaseAutoAction):
             distributions=self.distributions,
             stage_name="fetch",
         )
-
         for dist in self.distributions:
             release_status = _check_release_status_for_component(
                 config=self.config,
@@ -423,24 +424,33 @@ class AutoAction(BaseAutoAction):
                     stage = "build"
                     try:
                         self.notify_build_status(
-                            dist,
-                            "building",
+                            dist=dist,
+                            status="building",
                         )
 
                         build_log_file = self.make_with_log(
                             self.run_stages,
                             dist=dist,
-                            stages=["prep", "build"],
+                            stages=["prep", "build", "sign", "publish"],
                         )
+
+                        self.notify_build_status(
+                            dist=dist,
+                            status="built",
+                            stage=stage,
+                            log_file=build_log_file,
+                        )
+
+                        # FIXME: possibly send sign/publish logs
 
                         stage = "upload"
                         self.make_with_log(
                             self.run_stages,
                             dist=dist,
-                            stages=["sign", "publish", "upload"],
+                            stages=["upload"],
                         )
 
-                        self.notify_upload_status(dist, build_log_file)
+                        self.notify_upload_status(dist=dist)
 
                         self.built_for_dist.append(dist)
                     except AutoActionError as autobuild_exc:
@@ -694,18 +704,24 @@ class AutoActionTemplate(BaseAutoAction):
             stage = "build"
             try:
                 self.notify_build_status(
-                    "building",
+                    status="building",
                 )
 
                 build_log_file = self.make_with_log(
                     self.run_stages,
-                    stages=["prep", "build"],
+                    stages=["prep", "build", "sign", "publish"],
+                )
+
+                self.notify_build_status(
+                    status="built",
+                    stage=stage,
+                    log_file=build_log_file,
                 )
 
                 stage = "upload"
                 self.make_with_log(
                     self.run_stages,
-                    stages=["sign", "publish", "upload"],
+                    stages=["upload"],
                 )
 
                 self.notify_upload_status(build_log_file)
@@ -964,6 +980,12 @@ class AutoActionISO(BaseAutoAction):
                 build_log_file = self.make_with_log(
                     self.run_stages,
                     stages=["init-cache", "prep", "build", "sign"],
+                )
+
+                self.notify_build_status(
+                    status="built",
+                    stage=stage,
+                    log_file=build_log_file,
                 )
 
                 stage = "upload"

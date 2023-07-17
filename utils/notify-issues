@@ -89,8 +89,8 @@ class NotifyIssueCli:
         """Returns a tuple of:
         - current version
         - previous version
-        - git short log formatted with github links
-        - referenced github issues, in github syntax
+        - git short log formatted with GitHub links
+        - referenced GitHub issues, in GitHub syntax
         """
         git_proc = subprocess.Popen(
             ["git", "-C", str(self.src_dir), "tag", "--list", "--points-at=HEAD", "v*"],
@@ -410,12 +410,30 @@ class NotifyIssueCli:
                 upload_suffix_message = f"[testing]({repository_url}) repository"
             else:
                 upload_suffix_message = f"testing repository"
+        elif self.package_name.startswith("qubes-template"):
+            base_message = f"Template {self.package_name.replace('qubes-template-', '')}"
+            upload_suffix_message = f"{repo_type} repository"
         else:
             base_message = f"Package for {dist_label}"
             upload_suffix_message = f"{repo_type} repository"
 
         if build_status == "building":
             report_message = None
+        elif build_status == "built":
+            if build_log:
+                report_message = f"{base_message} was built ([build log]({build_log}))."
+            else:
+                report_message = (
+                    f"{base_message} was built."
+                )
+            if additional_info:
+                report_message = f"{report_message.rstrip('.')} ({additional_info})."
+        elif build_status == "uploaded":
+            report_message = (
+                f"{base_message} was uploaded to {upload_suffix_message}."
+            )
+            if additional_info:
+                report_message = f"{report_message.rstrip('.')} ({additional_info})."
         elif build_status == "failed":
             if build_log:
                 report_message = (
@@ -426,14 +444,7 @@ class NotifyIssueCli:
             if additional_info:
                 report_message = f"{report_message.rstrip('.')} ({additional_info})."
         else:
-            if build_log:
-                report_message = f"{base_message} was built ([build log]({build_log})) and uploaded to {upload_suffix_message}."
-            else:
-                report_message = (
-                    f"{base_message} was uploaded to {upload_suffix_message}."
-                )
-            if additional_info:
-                report_message = f"{report_message.rstrip('.')} ({additional_info})."
+            raise NotifyIssueError(f"Unexpected build status '{build_status}'")
 
         component = self.src_dir.name
 
@@ -569,7 +580,7 @@ def main():
     # Common args
     add_required_args_to_parser(build_parser)
     build_parser.add_argument(
-        "status", help="Build status", choices=["failed", "building"]
+        "status", help="Build status", choices=["failed", "building", "built", "uploaded"]
     )
 
     args = parser.parse_args()
@@ -629,7 +640,7 @@ def main():
         prefix_label = f"{args.release_name}-{dist_label}"
 
     if args.command == "upload":
-        build_status = None
+        build_status = "uploaded"
         repo_type = args.repo_type
         repository_url = args.repository_url
         delete_labels = [
@@ -670,6 +681,8 @@ def main():
             add_labels = [f"{prefix_label}-building"]
             # we ensure that we don't keep those labels in case of previous failures
             delete_labels = [f"{prefix_label}-failed"]
+        elif build_status == "built":
+            delete_labels = [f"{prefix_label}-failed", f"{prefix_label}-building"]
 
     current_commit = cli.get_current_commit()
     previous_stable_commit = None

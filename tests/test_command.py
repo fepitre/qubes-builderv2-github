@@ -3,7 +3,8 @@ import subprocess
 import time
 
 import psutil
-import yaml
+
+from conftest import set_dry_run
 
 FEPITRE_FPR = "9FA64B92F95E706BF28E2CA6484010B5CDC576E2"
 TESTUSER_FPR = "632F8C69E01B25C9E0C3ADF2F360C0D259FB650C"
@@ -40,15 +41,6 @@ def create_builders_list(directory):
             release, builder_dir, builder_conf = line
             f.write(f"{release}={builder_dir}={builder_conf}")
     return builders
-
-
-def set_dry_run(builder_conf):
-    with open(builder_conf, "r") as f:
-        conf = yaml.safe_load(f.read())
-
-    conf["github"]["dry-run"] = True
-    with open(builder_conf, "w") as f:
-        f.write(yaml.dump(conf))
 
 
 def test_command_00_build_component(workdir):

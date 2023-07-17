@@ -103,6 +103,9 @@ components:
   - input-proxy-clone:
       url: https://github.com/QubesOS/qubes-app-linux-input-proxy
       branch: v1.0.28
+  - grub2:
+      url: https://github.com/QubesOS/qubes-grub2
+      branch: v2.06-2
   - builder-rpm:
       packages: False
       fetch-versions-only: false
@@ -112,3 +115,28 @@ components:
 
 iso:
   kickstart: conf/iso-online-testing.ks
+
+cache:
+  host-fc37:
+    packages:
+      - gcc
+      - kernel-headers
+      - make
+      - python3-devel
+      - python3-setuptools
+      - systemd
+  vm-bullseye:
+    packages:
+      - fakeroot
+      - libfakeroot
+      - debhelper
+      - python-setuptools
+      - python3-setuptools
+  vm-fc36:
+    packages:
+      - gcc
+      - kernel-headers
+      - make
+      - python3-devel
+      - python3-setuptools
+      - systemd

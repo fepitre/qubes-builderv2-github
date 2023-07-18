@@ -23,7 +23,6 @@ variables:
     - cp -r ~/pytest-of-user/pytest-current/github-current/*.log $CI_PROJECT_DIR/results || true
     - cp -r ~/pytest-of-user/pytest-current/github-current/builder-github-logs $CI_PROJECT_DIR/results/
 
-
 test_action:
   extends: .pytest
   script:

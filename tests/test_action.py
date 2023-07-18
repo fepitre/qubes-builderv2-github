@@ -66,7 +66,7 @@ def _build_component_check(tmpdir):
 
     assert (
         tmpdir
-        / f"artifacts/components/app-linux-split-gpg/2.0.60-1/vm-fc36/publish/rpm_spec_gpg-split.spec.publish.yml"
+        / f"artifacts/components/app-linux-split-gpg/2.0.60-1/vm-fc38/publish/rpm_spec_gpg-split.spec.publish.yml"
     ).exists
 
 
@@ -91,11 +91,11 @@ def _build_component_check_multi(tmpdir):
 
     assert (
         tmpdir
-        / f"artifacts/components/input-proxy/1.0.27-1/vm-fc36/publish/rpm_spec_input-proxy.spec.publish.yml"
+        / f"artifacts/components/input-proxy/1.0.27-1/vm-fc38/publish/rpm_spec_input-proxy.spec.publish.yml"
     ).exists
     assert (
         tmpdir
-        / f"artifacts/components/input-proxy-clone/1.0.28-1/vm-fc36/publish/rpm_spec_input-proxy.spec.publish.yml"
+        / f"artifacts/components/input-proxy-clone/1.0.28-1/vm-fc38/publish/rpm_spec_input-proxy.spec.publish.yml"
     ).exists
 
 
@@ -123,7 +123,7 @@ def _fix_timestamp_artifacts_path(artifacts_path):
 
 
 def _fix_timestamp_repo(tmpdir):
-    for distribution in ["host-fc37", "vm-bullseye", "vm-fc36"]:
+    for distribution in ["host-fc37", "vm-bullseye", "vm-fc38"]:
         if distribution == "host-fc37":
             artifacts_path = (
                 tmpdir
@@ -178,26 +178,26 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
         else:
             assert set(rpms) == set(packages)
 
-    # vm-fc36
+    # vm-fc38
     rpms = [
-        "qubes-gpg-split-2.0.60-1.fc36.src.rpm",
-        "qubes-gpg-split-2.0.60-1.fc36.x86_64.rpm",
-        "qubes-gpg-split-tests-2.0.60-1.fc36.x86_64.rpm",
-        "qubes-gpg-split-debuginfo-2.0.60-1.fc36.x86_64.rpm",
-        "qubes-gpg-split-debugsource-2.0.60-1.fc36.x86_64.rpm",
+        "qubes-gpg-split-2.0.60-1.fc38.src.rpm",
+        "qubes-gpg-split-2.0.60-1.fc38.x86_64.rpm",
+        "qubes-gpg-split-tests-2.0.60-1.fc38.x86_64.rpm",
+        "qubes-gpg-split-debuginfo-2.0.60-1.fc38.x86_64.rpm",
+        "qubes-gpg-split-debugsource-2.0.60-1.fc38.x86_64.rpm",
     ]
     rpms_testing = []
     if with_input_proxy:
         rpms_testing += [
-            rpm.replace("@VERSION@", "1.0.27").replace("@DIST@", "fc36")
+            rpm.replace("@VERSION@", "1.0.27").replace("@DIST@", "fc38")
             for rpm in rpms_input_proxy
         ]
         rpms_testing += [
-            rpm.replace("@VERSION@", "1.0.28").replace("@DIST@", "fc36")
+            rpm.replace("@VERSION@", "1.0.28").replace("@DIST@", "fc38")
             for rpm in rpms_input_proxy
         ]
     for repository in ["current-testing", "security-testing", "current"]:
-        repository_dir = f"file://{tmpdir}/artifacts/repository-publish/rpm/r4.2/{repository}/vm/fc36"
+        repository_dir = f"file://{tmpdir}/artifacts/repository-publish/rpm/r4.2/{repository}/vm/fc38"
         packages = rpm_packages_list(repository_dir)
         if repository == "current-testing":
             assert set(rpms + rpms_testing) == set(packages)
@@ -318,17 +318,17 @@ def test_action_build_component(token, github_repository, workdir):
     # Check that labels exist
     assert set(labels) == {
         "r4.2-host-cur-test",
-        "r4.2-vm-fc36-cur-test",
+        "r4.2-vm-fc38-cur-test",
         "r4.2-vm-bullseye-cur-test",
     }
 
     # Check that comments exist
     assert comments == {
         f"Package for host was built ([build log]({tmpdir / 'build-component.log'})).",
-        f"Package for vm-fc36 was built ([build log]({tmpdir / 'build-component.log'})).",
+        f"Package for vm-fc38 was built ([build log]({tmpdir / 'build-component.log'})).",
         f"Package for vm-bullseye was built ([build log]({tmpdir / 'build-component.log'})).",
         "Package for host was uploaded to current-testing repository.",
-        "Package for vm-fc36 was uploaded to current-testing repository.",
+        "Package for vm-fc38 was uploaded to current-testing repository.",
         "Package for vm-bullseye was uploaded to current-testing repository.",
     }
 

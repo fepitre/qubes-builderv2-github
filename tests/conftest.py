@@ -113,6 +113,17 @@ executor:
 
     if env.get("CACHE_DIR", None):
         shutil.copytree(env["CACHE_DIR"], tmpdir / "artifacts/cache")
+    else:
+        subprocess.run(
+            [
+                "./qb",
+                "--builder-conf",
+                tmpdir / "builder.yml",
+                "package",
+                "init-cache",
+            ],
+            cwd=tmpdir / "qubes-builderv2",
+        )
 
     yield tmpdir, env
     # shutil.rmtree(tmpdir)

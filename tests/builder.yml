@@ -10,9 +10,9 @@ github:
       distributions:
         - host-fc37
         - vm-bullseye
-        - vm-fc36
+        - vm-fc38
       templates:
-        - fedora-35-xfce
+        - fedora-38-xfce
         - debian-11
         - debian-11-minimal
     632F8C69E01B25C9E0C3ADF2F360C0D259FB650C:
@@ -40,14 +40,14 @@ use-qubes-repo:
 distributions:
   - host-fc37
   - vm-bullseye
-  - vm-fc36
+  - vm-fc38
 
 template-root-with-partitions: true
 template-root-size: 15G
 
 templates:
-  - fedora-35-xfce:
-      dist: fc35
+  - fedora-38-xfce:
+      dist: fc38
   - debian-11:
       dist: bullseye
       options:
@@ -60,18 +60,6 @@ templates:
       options:
         - no-recommends
       timeout: 7200
-  - whonix-gateway-16:
-      dist: bullseye
-      flavor: whonix-gateway
-      options:
-        - minimal
-        - no-recommends
-  - whonix-workstation-16:
-      dist: bullseye
-      flavor: whonix-workstation
-      options:
-        - minimal
-        - no-recommends
 
 stages:
   - fetch
@@ -138,7 +126,7 @@ cache:
       - debhelper
       - python-setuptools
       - python3-setuptools
-  vm-fc36:
+  vm-fc38:
     packages:
       - gcc
       - kernel-headers

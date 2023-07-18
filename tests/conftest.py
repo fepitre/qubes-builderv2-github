@@ -111,19 +111,10 @@ executor:
         "PYTHONPATH"
     ] = f"{tmpdir / 'qubes-builderv2'!s}:{os.environ.get('PYTHONPATH','')}"
 
-    if env.get("CACHE_DIR", None):
-        shutil.copytree(env["CACHE_DIR"], tmpdir / "artifacts/cache")
-    else:
-        subprocess.run(
-            [
-                "./qb",
-                "--builder-conf",
-                tmpdir / "builder.yml",
-                "package",
-                "init-cache",
-            ],
-            cwd=tmpdir / "qubes-builderv2",
-        )
+    if env.get("CI_PROJECT_DIR", None):
+        cache_dir = (Path(env["CI_PROJECT_DIR"]) / "cache").resolve()
+        if cache_dir.is_dir():
+            shutil.copytree(cache_dir, tmpdir / "artifacts/cache")
 
     yield tmpdir, env
     # shutil.rmtree(tmpdir)

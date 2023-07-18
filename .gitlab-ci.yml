@@ -1,8 +1,31 @@
 stages:
+  - prepare
   - test
 
 variables:
   DEBUG: "1"
+
+init-cache:
+  stage: prepare
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "test"
+      when: always
+    - when: manual
+  artifacts:
+    when: always
+    paths:
+      - cache
+  tags:
+    - vm
+  before_script:
+    # Pull docker image for using (qubes-builder) docker executor
+    - docker pull fepitre/qubes-builder-fedora:latest
+    - docker tag fepitre/qubes-builder-fedora:latest qubes-builder-fedora:latest
+  script:
+    - git clone https://github.com/QubesOS/qubes-builderv2
+    - cd qubes-builderv2
+    - ./qb --builder-conf "$CI_PROJECT_DIR"/tests/builder.yml package init-cache
+    - mv artifacts/cache "$CI_PROJECT_DIR"
 
 .pytest:
   stage: test

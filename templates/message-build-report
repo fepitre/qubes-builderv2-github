@@ -11,7 +11,7 @@ Referenced issues:
 If you're release manager, you can issue GPG-inline signed command:
 
 * `Upload-component @RELEASE_NAME@ @COMPONENT@ @COMMIT_SHA@ current all` (available @MIN_AGE_DAYS@ days from now)
-* `Upload-component @RELEASE_NAME@ @COMPONENT@ @COMMIT_SHA@ security-testing`
+* `Upload-component @RELEASE_NAME@ @COMPONENT@ @COMMIT_SHA@ security-testing all`
 
 You can choose subset of distributions like:
 * `Upload-component @RELEASE_NAME@ @COMPONENT@ @COMMIT_SHA@ current vm-bookworm,vm-fc37` (available @MIN_AGE_DAYS@ days from now)

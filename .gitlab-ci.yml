@@ -53,6 +53,8 @@ test_action:
 
 test_command:
   extends: .pytest
+  tags:
+    - docker
   script:
     - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_command.py
 
@@ -63,6 +65,8 @@ test_rpc:
 
 test_notify:
   extends: .pytest
+  tags:
+    - docker
   script:
     - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_notify.py
 

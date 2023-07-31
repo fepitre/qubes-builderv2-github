@@ -619,5 +619,5 @@ def test_action_build_iso(token, github_repository, workdir):
     # Check that comments exist
     assert comments == {
         f"ISO for r4.2 was built ([build log]({tmpdir}/build-iso.log)).",
-        f"ISO for r4.2 was built was uploaded to testing repository.",
+        f"ISO for r4.2 was uploaded to testing repository.",
     }

@@ -37,7 +37,7 @@ class Service:
 
     def qrexec(self, vm, service, input_data=None):
         with subprocess.Popen(
-            ["/usr/bin/qrexec-client-vm", "--", vm, service],
+            ["qrexec-client-vm", "--", vm, service],
             stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
         ) as p:

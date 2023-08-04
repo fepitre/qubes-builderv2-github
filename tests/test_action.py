@@ -287,7 +287,7 @@ def _build_iso_check(tmpdir, timestamp):
     assert timestamp == latest_timestamp
 
 
-def test_action_build_component(token, github_repository, workdir):
+def test_action_component_build(token, github_repository, workdir):
     tmpdir, env = workdir
     set_conf_options(
         tmpdir / "builder.yml",
@@ -333,7 +333,7 @@ def test_action_build_component(token, github_repository, workdir):
     }
 
 
-def test_action_build_component_multi(workdir):
+def test_action_component_build_multi(workdir):
     tmpdir, env = workdir
 
     cmd = [
@@ -352,7 +352,7 @@ def test_action_build_component_multi(workdir):
     _build_component_check_multi(tmpdir)
 
 
-def test_action_upload_component(workdir):
+def test_action_component_upload(workdir):
     tmpdir, env = workdir
 
     cmd = [
@@ -393,7 +393,7 @@ def test_action_upload_component(workdir):
     _upload_component_check(tmpdir, with_input_proxy=True)
 
 
-def test_action_build_and_upload_component_host_only(token, github_repository, workdir):
+def test_action_component_build_and_upload_host_only(token, github_repository, workdir):
     tmpdir, env = workdir
     set_conf_options(
         tmpdir / "builder.yml",
@@ -470,7 +470,7 @@ def test_action_build_and_upload_component_host_only(token, github_repository, w
     }
 
 
-def test_action_build_template(token, github_repository, workdir):
+def test_action_template_build(token, github_repository, workdir):
     tmpdir, env = workdir
     set_conf_options(
         tmpdir / "builder.yml",
@@ -528,7 +528,7 @@ def test_action_build_template(token, github_repository, workdir):
     }
 
 
-def test_action_upload_template(token, github_repository, workdir):
+def test_action_template_upload(token, github_repository, workdir):
     tmpdir, env = workdir
     set_conf_options(
         tmpdir / "builder.yml",
@@ -577,7 +577,7 @@ def test_action_upload_template(token, github_repository, workdir):
     }
 
 
-def test_action_build_iso(token, github_repository, workdir):
+def test_action_iso_build(token, github_repository, workdir):
     tmpdir, env = workdir
     set_conf_options(
         tmpdir / "builder.yml",

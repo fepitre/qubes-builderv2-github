@@ -115,7 +115,7 @@ def generate_signed_build_template_command(env, timestamp=None):
         timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
     return subprocess.run(
         [
-            f"echo Build-template r4.2 debian-11 {timestamp} | gpg2 --clearsign -u {TESTUSER_FPR}"
+            f"echo Build-template r4.2 debian-11-minimal {timestamp} | gpg2 --clearsign -u {TESTUSER_FPR}"
         ],
         shell=True,
         check=True,
@@ -131,7 +131,7 @@ def generate_signed_upload_template_command(
         timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
     return subprocess.run(
         [
-            f"echo Upload-template r4.2 debian-11 4.1.0-{timestamp} {repository} | gpg2 --clearsign -u {TESTUSER_FPR}"
+            f"echo Upload-template r4.2 debian-11-minimal 4.2.0-{timestamp} {repository} | gpg2 --clearsign -u {TESTUSER_FPR}"
         ],
         shell=True,
         check=True,

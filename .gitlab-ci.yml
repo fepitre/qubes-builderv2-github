@@ -1,8 +1,31 @@
 stages:
+  - prepare
   - test
 
 variables:
   DEBUG: "1"
+
+init-cache:
+  stage: prepare
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "test"
+      when: always
+    - when: manual
+  artifacts:
+    when: always
+    paths:
+      - cache
+  tags:
+    - vm
+  before_script:
+    # Pull docker image for using (qubes-builder) docker executor
+    - docker pull fepitre/qubes-builder-fedora:latest
+    - docker tag fepitre/qubes-builder-fedora:latest qubes-builder-fedora:latest
+  script:
+    - git clone https://github.com/QubesOS/qubes-builderv2
+    - cd qubes-builderv2
+    - ./qb --builder-conf "$CI_PROJECT_DIR"/tests/builder.yml package init-cache
+    - mv artifacts/cache "$CI_PROJECT_DIR"
 
 .pytest:
   stage: test
@@ -23,24 +46,52 @@ variables:
     - cp -r ~/pytest-of-user/pytest-current/github-current/*.log $CI_PROJECT_DIR/results || true
     - cp -r ~/pytest-of-user/pytest-current/github-current/builder-github-logs $CI_PROJECT_DIR/results/
 
-
-test_action:
+test-action-component:
   extends: .pytest
   script:
-    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_action.py
+    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_action.py -k test_action_component
 
-test_command:
+test-action-template:
   extends: .pytest
+  script:
+    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_action.py -k test_action_template
+
+test-action-iso:
+  extends: .pytest
+  script:
+    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_action.py -k test_action_iso
+
+test-rpc-parse:
+  extends: .pytest
+  script:
+    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_rpc.py -k _parse_
+
+test-rpc-component:
+  extends: .pytest
+  script:
+    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_rpc.py -k "test_rpc_04 or test_rpc_05"
+
+test-rpc-template:
+  extends: .pytest
+  script:
+    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_rpc.py -k "test_rpc_06 or test_rpc_07"
+
+test-rpc-iso:
+  extends: .pytest
+  script:
+    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_rpc.py -k test_rpc_08
+
+test-command:
+  extends: .pytest
+  tags:
+    - docker
   script:
     - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_command.py
 
-test_rpc:
+test-notify:
   extends: .pytest
-  script:
-    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_rpc.py
-
-test_notify:
-  extends: .pytest
+  tags:
+    - docker
   script:
     - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_notify.py
 

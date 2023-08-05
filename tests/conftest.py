@@ -3,13 +3,30 @@ import random
 import shutil
 import string
 import subprocess
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
+import yaml
 from github import Github
 
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
+
+
+# qubesbuilder/config
+def deep_merge(a: dict, b: dict, allow_append: bool = False) -> dict:
+    result = deepcopy(a)
+    for b_key, b_value in b.items():
+        a_value = result.get(b_key, None)
+        if isinstance(a_value, dict) and isinstance(b_value, dict):
+            result[b_key] = deep_merge(a_value, b_value, allow_append)
+        else:
+            if allow_append and isinstance(result.get(b_key, None), list):
+                result[b_key] += deepcopy(b_value)
+            else:
+                result[b_key] = deepcopy(b_value)
+    return result
 
 
 def get_random_string(length):
@@ -22,7 +39,7 @@ def get_random_string(length):
 def token():
     github_api_key = os.environ.get("GITHUB_API_KEY")
     if not github_api_key:
-        raise ValueError("Cannot find GITHUB_API_TOKEN.")
+        raise ValueError("Cannot find GITHUB_API_KEY.")
     return github_api_key
 
 
@@ -94,5 +111,31 @@ executor:
         "PYTHONPATH"
     ] = f"{tmpdir / 'qubes-builderv2'!s}:{os.environ.get('PYTHONPATH','')}"
 
+    if env.get("CI_PROJECT_DIR", None):
+        cache_dir = (Path(env["CI_PROJECT_DIR"]) / "cache").resolve()
+        if cache_dir.is_dir():
+            shutil.copytree(cache_dir, tmpdir / "artifacts/cache")
+
     yield tmpdir, env
     # shutil.rmtree(tmpdir)
+
+
+def set_conf_options(builder_conf, options):
+    with open(builder_conf, "r") as f:
+        conf = yaml.safe_load(f.read())
+    conf = deep_merge(conf, options)
+    with open(builder_conf, "w") as f:
+        f.write(yaml.dump(conf))
+
+
+def set_dry_run(builder_conf):
+    set_conf_options(builder_conf, {"github": {"dry-run": True}})
+
+
+def get_issue(issue_title, repository):
+    issue = None
+    for i in repository.get_issues():
+        if i.title == issue_title:
+            issue = i
+            break
+    return issue

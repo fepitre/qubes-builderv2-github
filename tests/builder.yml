@@ -10,10 +10,11 @@ github:
       distributions:
         - host-fc37
         - vm-bullseye
-        - vm-fc36
+        - vm-fc38
       templates:
-        - fedora-35-xfce
+        - fedora-38-xfce
         - debian-11
+        - debian-11-minimal
     632F8C69E01B25C9E0C3ADF2F360C0D259FB650C:
       iso: true
       components: _all_
@@ -39,32 +40,26 @@ use-qubes-repo:
 distributions:
   - host-fc37
   - vm-bullseye
-  - vm-fc36
+  - vm-fc38
 
 template-root-with-partitions: true
 template-root-size: 15G
 
 templates:
-  - fedora-35-xfce:
-      dist: fc35
+  - fedora-38-xfce:
+      dist: fc38
   - debian-11:
       dist: bullseye
       options:
         - standard
         - firmware
       timeout: 7200
-  - whonix-gateway-16:
+  - debian-11-minimal:
       dist: bullseye
-      flavor: whonix-gateway
+      flavor: minimal
       options:
-        - minimal
         - no-recommends
-  - whonix-workstation-16:
-      dist: bullseye
-      flavor: whonix-workstation
-      options:
-        - minimal
-        - no-recommends
+      timeout: 7200
 
 stages:
   - fetch
@@ -103,6 +98,8 @@ components:
   - input-proxy-clone:
       url: https://github.com/QubesOS/qubes-app-linux-input-proxy
       branch: v1.0.28
+  - grub2:
+      branch: v2.06-2
   - builder-rpm:
       packages: False
       fetch-versions-only: false
@@ -112,3 +109,28 @@ components:
 
 iso:
   kickstart: conf/iso-online-testing.ks
+
+cache:
+  host-fc37:
+    packages:
+      - gcc
+      - kernel-headers
+      - make
+      - python3-devel
+      - python3-setuptools
+      - systemd
+  vm-bullseye:
+    packages:
+      - fakeroot
+      - libfakeroot
+      - debhelper
+      - python-setuptools
+      - python3-setuptools
+  vm-fc38:
+    packages:
+      - gcc
+      - kernel-headers
+      - make
+      - python3-devel
+      - python3-setuptools
+      - systemd

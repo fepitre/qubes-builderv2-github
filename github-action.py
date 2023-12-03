@@ -227,6 +227,9 @@ class BaseAutoAction(ABC):
         pass
 
     def notify_github(self, notify_issues_cmd, build_target, env):
+        if not self.api_key:
+            log.debug(f"API key not set, not calling cmd: {notify_issues_cmd}")
+            return
         try:
             if self.dry_run:
                 log.debug(f"[DRY-RUN] cmd: {notify_issues_cmd}")

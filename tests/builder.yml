@@ -24,6 +24,9 @@ github:
 git:
   baseurl: https://github.com
   prefix: QubesOS/qubes-
+  maintainers:
+    # marmarek
+    - '0064428F455451B3EBE78A7F063938BA42CFA724'
 
 backend-vmm: xen
 debug: true
@@ -109,6 +112,9 @@ components:
       packages: False
       fetch-versions-only: false
   - builder-debian:
+      packages: False
+      fetch-versions-only: false
+  - qubes-release:
       packages: False
       fetch-versions-only: false
 

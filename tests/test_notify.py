@@ -12,7 +12,7 @@ def test_notify_00_template_build_success_upload(token, github_repository, workd
     tmpdir, env = workdir
     build_log = "dummy"
     # We need seconds because we create multiple issues successively.
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
     template_name = "fedora-42"
     package_name = f"qubes-template-{template_name}-4.2.0-{timestamp}"
     distribution = "vm-fc42"
@@ -122,7 +122,7 @@ For more information on how to test this update, please take a look at https://w
 def test_notify_01_template_build_failure(token, github_repository, workdir):
     tmpdir, env = workdir
     build_log = "dummy"
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
     template_name = "debian-13"
     package_name = f"qubes-template-{template_name}-4.2.0-{timestamp}"
     distribution = "vm-trixie"
@@ -187,7 +187,7 @@ def test_notify_01_template_build_failure(token, github_repository, workdir):
 def test_notify_02_iso_build_success_upload(token, github_repository, workdir):
     tmpdir, env = workdir
     build_log = "dummy"
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
     distribution = "host-fc42"
     package_name = f"iso-{distribution}-4.2.{timestamp}"
 
@@ -284,7 +284,7 @@ For more information on how to test this update, please take a look at https://w
 def test_notify_03_iso_build_failure(token, github_repository, workdir):
     tmpdir, env = workdir
     build_log = "dummy"
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%s")
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
     distribution = "host-fc42"
     package_name = f"iso-{distribution}-4.2.{timestamp}"
 

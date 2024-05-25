@@ -112,7 +112,7 @@ def generate_signed_upload_component_command(env, repository="current", dist="al
 
 def generate_signed_build_template_command(env, timestamp=None):
     if not timestamp:
-        timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+        timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
     return subprocess.run(
         [
             f"echo Build-template r4.2 debian-11-minimal {timestamp} | gpg2 --clearsign -u {TESTUSER_FPR}"
@@ -128,7 +128,7 @@ def generate_signed_upload_template_command(
     env, timestamp=None, repository="templates-itl"
 ):
     if not timestamp:
-        timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+        timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
     return subprocess.run(
         [
             f"echo Upload-template r4.2 debian-11-minimal 4.2.0-{timestamp} {repository} | gpg2 --clearsign -u {TESTUSER_FPR}"
@@ -142,7 +142,7 @@ def generate_signed_upload_template_command(
 
 def generate_signed_build_iso_command(env, timestamp=None):
     if not timestamp:
-        timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+        timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
     return subprocess.run(
         [
             f"echo Build-iso r4.2 4.2.{timestamp} {timestamp} | gpg2 --clearsign -u {TESTUSER_FPR}"
@@ -280,7 +280,7 @@ def test_rpc_06_build_template_command(workdir):
     )
 
     # create signed build template command
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
     with open(tmpdir / "timestamp", "w") as f:
         f.write(timestamp)
     signed_command = generate_signed_build_template_command(env)
@@ -346,7 +346,7 @@ def test_rpc_08_build_iso_command(workdir):
     fix_scripts_dir(tmpdir, logfile=str(tmpdir / "build-command.log"), env=env)
 
     # create signed build iso command
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
     with open(tmpdir / "timestamp", "w") as f:
         f.write(timestamp)
     signed_command = generate_signed_build_iso_command(env)

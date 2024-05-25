@@ -120,7 +120,7 @@ def test_command_02_build_template(workdir):
     # Create builder list
     builders_list = create_builders_list(tmpdir)
 
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
     with open(tmpdir / "timestamp", "w") as f:
         f.write(timestamp)
 
@@ -196,7 +196,7 @@ def test_command_04_build_iso(workdir):
     # Create builder list
     builders_list = create_builders_list(tmpdir)
 
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
     with open(tmpdir / "timestamp", "w") as f:
         f.write(timestamp)
 

@@ -494,7 +494,7 @@ def test_action_template_build(token, github_repository, workdir):
     ]
     subprocess.run(cmd, check=True, env=env, capture_output=True)
 
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
     with open(tmpdir / "timestamp", "w") as f:
         f.write(timestamp)
 
@@ -589,7 +589,7 @@ def test_action_iso_build(token, github_repository, workdir):
         },
     )
 
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
     with open(tmpdir / "timestamp", "w") as f:
         f.write(timestamp)
 

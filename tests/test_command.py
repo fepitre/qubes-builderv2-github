@@ -44,7 +44,7 @@ def create_builders_list(directory):
 
 
 def test_command_00_build_component(workdir):
-    tmpdir, _ = workdir
+    tmpdir, env = workdir
 
     # Create builder list
     builders_list = create_builders_list(tmpdir)
@@ -67,7 +67,7 @@ def test_command_00_build_component(workdir):
         "Build-component",
         f"{tmpdir}/command",
     ]
-    command_process = subprocess.Popen(cmd)
+    command_process = subprocess.Popen(cmd, env=env)
     all_processes = get_all_processes()
     for b in builders_list:
         release, builder_dir, builder_conf = b
@@ -80,7 +80,7 @@ def test_command_00_build_component(workdir):
 
 
 def test_command_01_upload_component(workdir):
-    tmpdir, _ = workdir
+    tmpdir, env = workdir
 
     commit_sha = "c5316c91107b8930ab4dc3341bc75293139b5b84"
 
@@ -105,17 +105,20 @@ def test_command_01_upload_component(workdir):
         "Upload-component",
         f"{tmpdir}/command",
     ]
-    subprocess.run(cmd, check=True)
+    command_process = subprocess.Popen(cmd, env=env)
     all_processes = get_all_processes()
     for b in builders_list:
         release, builder_dir, builder_conf = b
         cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-action.py --signer-fpr {FEPITRE_FPR} upload-component {builder_dir} {builder_conf} app-linux-split-gpg {commit_sha} current --distribution all"
         if not find_github_action(all_processes, cmdline):
             raise ValueError(f"{cmdline}: cannot find process.")
+    command_process.communicate()
+    if command_process.poll() != 0:
+        raise ValueError("github-command failed.")
 
 
 def test_command_02_build_template(workdir):
-    tmpdir, _ = workdir
+    tmpdir, env = workdir
 
     # Create builder list
     builders_list = create_builders_list(tmpdir)
@@ -142,7 +145,7 @@ def test_command_02_build_template(workdir):
         "Build-template",
         f"{tmpdir}/command",
     ]
-    command_process = subprocess.Popen(cmd)
+    command_process = subprocess.Popen(cmd, env=env)
     all_processes = get_all_processes()
     for b in builders_list:
         release, builder_dir, builder_conf = b
@@ -181,17 +184,20 @@ def test_command_03_upload_template(workdir):
         "Upload-template",
         f"{tmpdir}/command",
     ]
-    subprocess.run(cmd, check=True)
+    command_process = subprocess.Popen(cmd, env=env)
     all_processes = get_all_processes()
     for b in builders_list:
         release, builder_dir, builder_conf = b
         cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-action.py --signer-fpr {FEPITRE_FPR} upload-template {builder_dir} {builder_conf} debian-11 4.2.0-{timestamp} templates-itl"
         if not find_github_action(all_processes, cmdline):
             raise ValueError(f"{cmdline}: cannot find process.")
+    command_process.communicate()
+    if command_process.poll() != 0:
+        raise ValueError("github-command failed.")
 
 
 def test_command_04_build_iso(workdir):
-    tmpdir, _ = workdir
+    tmpdir, env = workdir
 
     # Create builder list
     builders_list = create_builders_list(tmpdir)
@@ -218,7 +224,7 @@ def test_command_04_build_iso(workdir):
         "Build-iso",
         f"{tmpdir}/command",
     ]
-    command_process = subprocess.Popen(cmd)
+    command_process = subprocess.Popen(cmd, env=env)
     all_processes = get_all_processes()
     for b in builders_list:
         release, builder_dir, builder_conf = b

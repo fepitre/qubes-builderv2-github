@@ -980,6 +980,15 @@ class AutoActionISO(BaseAutoAction):
                     "building",
                 )
 
+                self.make_with_log(
+                    _component_stage,
+                    config=self.config,
+                    manager=self.manager,
+                    components=["qubes-release"],
+                    distributions=[],
+                    stage_name="fetch",
+                )
+
                 build_log_file = self.make_with_log(
                     self.run_stages,
                     stages=["init-cache", "prep", "build", "sign"],

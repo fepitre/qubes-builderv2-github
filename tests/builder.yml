@@ -106,6 +106,8 @@ components:
   - builder-debian:
       packages: False
       fetch-versions-only: false
+  - qubes-release:
+      packages: False
 
 iso:
   kickstart: conf/iso-online-testing.ks

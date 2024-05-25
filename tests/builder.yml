@@ -61,6 +61,11 @@ templates:
         - no-recommends
       timeout: 7200
 
+executor:
+  type: docker
+  options:
+    image: "qubes-builder-fedora:latest"
+
 stages:
   - fetch
   - prep

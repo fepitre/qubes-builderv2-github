@@ -406,7 +406,7 @@ Referenced issues:
 If you're release manager, you can issue GPG-inline signed command:
 
 * `Upload-component r4.2 {package_name} a6ff3071aa650f6ae9639c07e133eb27cffd91df current all` (available 5 days from now)
-* `Upload-component r4.2 {package_name} a6ff3071aa650f6ae9639c07e133eb27cffd91df security-testing`
+* `Upload-component r4.2 {package_name} a6ff3071aa650f6ae9639c07e133eb27cffd91df security-testing all`
 
 You can choose subset of distributions like:
 * `Upload-component r4.2 {package_name} a6ff3071aa650f6ae9639c07e133eb27cffd91df current vm-bookworm,vm-fc37` (available 5 days from now)

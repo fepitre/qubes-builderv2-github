@@ -129,7 +129,7 @@ def test_command_02_build_template(workdir):
 
     # Write command
     with open(f"{tmpdir}/command", "w") as f:
-        f.write(f"Build-template r4.2 debian-11 {timestamp}")
+        f.write(f"Build-template r4.2 debian-12 {timestamp}")
 
     # Dry-run
     set_dry_run(f"{tmpdir}/builder.yml")
@@ -149,7 +149,7 @@ def test_command_02_build_template(workdir):
     all_processes = get_all_processes()
     for b in builders_list:
         release, builder_dir, builder_conf = b
-        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-action.py --signer-fpr {FEPITRE_FPR} build-template {builder_dir} {builder_conf} debian-11 {timestamp}"
+        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-action.py --signer-fpr {FEPITRE_FPR} build-template {builder_dir} {builder_conf} debian-12 {timestamp}"
         if not find_github_action(all_processes, cmdline):
             raise ValueError(f"{cmdline}: cannot find process.")
     command_process.communicate()
@@ -168,7 +168,7 @@ def test_command_03_upload_template(workdir):
 
     # Write command
     with open(f"{tmpdir}/command", "w") as f:
-        f.write(f"Upload-template r4.2 debian-11 4.2.0-{timestamp} templates-itl")
+        f.write(f"Upload-template r4.2 debian-12 4.2.0-{timestamp} templates-itl")
 
     # Dry-run
     set_dry_run(f"{tmpdir}/builder.yml")
@@ -188,7 +188,7 @@ def test_command_03_upload_template(workdir):
     all_processes = get_all_processes()
     for b in builders_list:
         release, builder_dir, builder_conf = b
-        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-action.py --signer-fpr {FEPITRE_FPR} upload-template {builder_dir} {builder_conf} debian-11 4.2.0-{timestamp} templates-itl"
+        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-action.py --signer-fpr {FEPITRE_FPR} upload-template {builder_dir} {builder_conf} debian-12 4.2.0-{timestamp} templates-itl"
         if not find_github_action(all_processes, cmdline):
             raise ValueError(f"{cmdline}: cannot find process.")
     command_process.communicate()

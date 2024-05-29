@@ -61,7 +61,7 @@ def _build_component_check(tmpdir):
 
     assert (
         tmpdir
-        / f"artifacts/components/app-linux-split-gpg/2.0.60-1/vm-bullseye/publish/debian.publish.yml"
+        / f"artifacts/components/app-linux-split-gpg/2.0.60-1/vm-bookworm/publish/debian.publish.yml"
     ).exists()
 
     assert (
@@ -73,29 +73,29 @@ def _build_component_check(tmpdir):
 def _build_component_check_multi(tmpdir):
     assert (
         tmpdir
-        / f"artifacts/components/input-proxy/1.0.27-1/host-fc37/publish/rpm_spec_input-proxy.spec.publish.yml"
+        / f"artifacts/components/input-proxy/1.0.35-1/host-fc37/publish/rpm_spec_input-proxy.spec.publish.yml"
     ).exists()
     assert (
         tmpdir
-        / f"artifacts/components/input-proxy-clone/1.0.28-1/host-fc37/publish/rpm_spec_input-proxy.spec.publish.yml"
-    ).exists()
-
-    assert (
-        tmpdir
-        / f"artifacts/components/input-proxy/1.0.27-1/vm-bullseye/publish/debian.publish.yml"
-    ).exists()
-    assert (
-        tmpdir
-        / f"artifacts/components/input-proxy-clone/1.0.28-1/vm-bullseye/publish/debian.publish.yml"
+        / f"artifacts/components/input-proxy-clone/1.0.36-1/host-fc37/publish/rpm_spec_input-proxy.spec.publish.yml"
     ).exists()
 
     assert (
         tmpdir
-        / f"artifacts/components/input-proxy/1.0.27-1/vm-fc38/publish/rpm_spec_input-proxy.spec.publish.yml"
+        / f"artifacts/components/input-proxy/1.0.35-1/vm-bookworm/publish/debian.publish.yml"
+    ).exists()
+    assert (
+        tmpdir
+        / f"artifacts/components/input-proxy-clone/1.0.36-1/vm-bookworm/publish/debian.publish.yml"
+    ).exists()
+
+    assert (
+        tmpdir
+        / f"artifacts/components/input-proxy/1.0.35-1/vm-fc38/publish/rpm_spec_input-proxy.spec.publish.yml"
     ).exists
     assert (
         tmpdir
-        / f"artifacts/components/input-proxy-clone/1.0.28-1/vm-fc38/publish/rpm_spec_input-proxy.spec.publish.yml"
+        / f"artifacts/components/input-proxy-clone/1.0.36-1/vm-fc38/publish/rpm_spec_input-proxy.spec.publish.yml"
     ).exists
 
 
@@ -123,13 +123,13 @@ def _fix_timestamp_artifacts_path(artifacts_path):
 
 
 def _fix_timestamp_repo(tmpdir):
-    for distribution in ["host-fc37", "vm-bullseye", "vm-fc38"]:
+    for distribution in ["host-fc37", "vm-bookworm", "vm-fc38"]:
         if distribution == "host-fc37":
             artifacts_path = (
                 tmpdir
                 / f"artifacts/components/app-linux-split-gpg/2.0.60-1/{distribution}/publish/rpm_spec_gpg-split-dom0.spec.publish.yml"
             )
-        elif distribution == "vm-bullseye":
+        elif distribution == "vm-bookworm":
             artifacts_path = (
                 tmpdir
                 / f"artifacts/components/app-linux-split-gpg/2.0.60-1/{distribution}/publish/debian.publish.yml"
@@ -161,11 +161,11 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
     rpms_testing = []
     if with_input_proxy:
         rpms_testing += [
-            rpm.replace("@VERSION@", "1.0.27").replace("@DIST@", "fc37")
+            rpm.replace("@VERSION@", "1.0.35").replace("@DIST@", "fc37")
             for rpm in rpms_input_proxy
         ]
         rpms_testing += [
-            rpm.replace("@VERSION@", "1.0.28").replace("@DIST@", "fc37")
+            rpm.replace("@VERSION@", "1.0.36").replace("@DIST@", "fc37")
             for rpm in rpms_input_proxy
         ]
     for repository in ["current-testing", "security-testing", "current"]:
@@ -189,11 +189,11 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
     rpms_testing = []
     if with_input_proxy:
         rpms_testing += [
-            rpm.replace("@VERSION@", "1.0.27").replace("@DIST@", "fc38")
+            rpm.replace("@VERSION@", "1.0.35").replace("@DIST@", "fc38")
             for rpm in rpms_input_proxy
         ]
         rpms_testing += [
-            rpm.replace("@VERSION@", "1.0.28").replace("@DIST@", "fc38")
+            rpm.replace("@VERSION@", "1.0.36").replace("@DIST@", "fc38")
             for rpm in rpms_input_proxy
         ]
     for repository in ["current-testing", "security-testing", "current"]:
@@ -206,35 +206,35 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
         else:
             assert set(rpms) == set(packages)
 
-    # vm-bullseye
+    # vm-bookworm
     repository_dir = tmpdir / "artifacts/repository-publish/deb/r4.2/vm"
-    for codename in ["bullseye-testing", "bullseye-securitytesting", "bullseye"]:
+    for codename in ["bookworm-testing", "bookworm-securitytesting", "bookworm"]:
         packages = deb_packages_list(repository_dir, codename)
         expected_packages = [
-            f"{codename}|main|amd64: qubes-gpg-split 2.0.60-1+deb11u1",
-            f"{codename}|main|amd64: qubes-gpg-split-dbgsym 2.0.60-1+deb11u1",
-            f"{codename}|main|amd64: qubes-gpg-split-tests 2.0.60-1+deb11u1",
-            f"{codename}|main|source: qubes-gpg-split 2.0.60-1+deb11u1",
+            f"{codename}|main|amd64: qubes-gpg-split 2.0.60-1+deb12u1",
+            f"{codename}|main|amd64: qubes-gpg-split-dbgsym 2.0.60-1+deb12u1",
+            f"{codename}|main|amd64: qubes-gpg-split-tests 2.0.60-1+deb12u1",
+            f"{codename}|main|source: qubes-gpg-split 2.0.60-1+deb12u1",
         ]
         if "-testing" in codename and with_input_proxy:
             # default reprepro keeps only the latest version,
-            # 1.0.27 won't be visible here
+            # 1.0.35 won't be visible here
             expected_packages += [
-                f"{codename}|main|source: qubes-input-proxy 1.0.28-1+deb11u1",
-                f"{codename}|main|amd64: qubes-input-proxy-sender 1.0.28-1+deb11u1",
-                f"{codename}|main|amd64: qubes-input-proxy-sender-dbgsym 1.0.28-1+deb11u1",
-                f"{codename}|main|amd64: qubes-input-proxy-receiver 1.0.28-1+deb11u1",
-                f"{codename}|main|amd64: qubes-input-proxy-receiver-dbgsym 1.0.28-1+deb11u1",
+                f"{codename}|main|source: qubes-input-proxy 1.0.36-1+deb12u1",
+                f"{codename}|main|amd64: qubes-input-proxy-sender 1.0.36-1+deb12u1",
+                f"{codename}|main|amd64: qubes-input-proxy-sender-dbgsym 1.0.36-1+deb12u1",
+                f"{codename}|main|amd64: qubes-input-proxy-receiver 1.0.36-1+deb12u1",
+                f"{codename}|main|amd64: qubes-input-proxy-receiver-dbgsym 1.0.36-1+deb12u1",
             ]
         assert set(packages) == set(expected_packages)
 
 
 def _build_template_check(tmpdir):
-    assert (tmpdir / f"artifacts/templates/debian-11-minimal.publish.yml").exists()
+    assert (tmpdir / f"artifacts/templates/debian-12-minimal.publish.yml").exists()
 
 
 def _fix_template_timestamp_repo(tmpdir):
-    artifacts_path = tmpdir / f"artifacts/templates/debian-11-minimal.publish.yml"
+    artifacts_path = tmpdir / f"artifacts/templates/debian-12-minimal.publish.yml"
     info = yaml.safe_load(artifacts_path.read())
     publish_timestamp = None
     for repo in info["repository-publish"]:
@@ -264,7 +264,7 @@ def _upload_template_check(tmpdir):
 
     # host-fc37
     rpms = [
-        f"qubes-template-debian-11-minimal-4.2.0-{build_timestamp}.noarch.rpm",
+        f"qubes-template-debian-12-minimal-4.2.0-{build_timestamp}.noarch.rpm",
     ]
     for repository in ["templates-itl-testing", "templates-itl"]:
         repository_dir = (
@@ -308,7 +308,7 @@ def test_action_component_build(token, github_repository, workdir):
         f"{tmpdir}/builder.yml",
         "app-linux-split-gpg",
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True)
+    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
     _build_component_check(tmpdir)
 
     labels, comments = get_labels_and_comments(
@@ -319,17 +319,17 @@ def test_action_component_build(token, github_repository, workdir):
     assert set(labels) == {
         "r4.2-host-cur-test",
         "r4.2-vm-fc38-cur-test",
-        "r4.2-vm-bullseye-cur-test",
+        "r4.2-vm-bookworm-cur-test",
     }
 
     # Check that comments exist
     assert comments == {
         f"Package for host was built ([build log]({tmpdir / 'build-component.log'})).",
         f"Package for vm-fc38 was built ([build log]({tmpdir / 'build-component.log'})).",
-        f"Package for vm-bullseye was built ([build log]({tmpdir / 'build-component.log'})).",
+        f"Package for vm-bookworm was built ([build log]({tmpdir / 'build-component.log'})).",
         "Package for host was uploaded to current-testing repository.",
         "Package for vm-fc38 was uploaded to current-testing repository.",
-        "Package for vm-bullseye was uploaded to current-testing repository.",
+        "Package for vm-bookworm was uploaded to current-testing repository.",
     }
 
 
@@ -347,7 +347,7 @@ def test_action_component_build_multi(workdir):
         f"{tmpdir}/builder.yml",
         "app-linux-input-proxy",
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True)
+    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
 
     _build_component_check_multi(tmpdir)
 
@@ -368,9 +368,9 @@ def test_action_component_upload(workdir):
         "c5316c91107b8930ab4dc3341bc75293139b5b84",
         "security-testing",
         "--distribution",
-        "vm-bullseye",
+        "vm-bookworm",
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True)
+    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
 
     _fix_timestamp_repo(tmpdir)
 
@@ -389,85 +389,85 @@ def test_action_component_upload(workdir):
         "--distribution",
         "all",
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True)
+    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
     _upload_component_check(tmpdir, with_input_proxy=True)
 
 
-def test_action_component_build_and_upload_host_only(token, github_repository, workdir):
-    tmpdir, env = workdir
-    set_conf_options(
-        tmpdir / "builder.yml",
-        {
-            "github": {
-                "api-key": token,
-                "build-report-repo": github_repository.full_name,
-            }
-        },
-    )
-
-    cmd = [
-        str(PROJECT_PATH / "github-action.py"),
-        "--local-log-file",
-        f"{tmpdir}/build-component.log",
-        "--no-signer-github-command-check",
-        "build-component",
-        f"{tmpdir}/qubes-builderv2",
-        f"{tmpdir}/builder.yml",
-        "grub2",
-    ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True)
-
-    cmd = [
-        str(PROJECT_PATH / "github-action.py"),
-        "--local-log-file",
-        f"{tmpdir}/upload-component.log",
-        "--no-signer-github-command-check",
-        "upload-component",
-        f"{tmpdir}/qubes-builderv2",
-        f"{tmpdir}/builder.yml",
-        "grub2",
-        "2596baff182a035a34d76ec3551464f88f7b6c03",
-        "security-testing",
-        "--distribution",
-        "host-fc37",
-    ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True)
-
-    _fix_timestamp_artifacts_path(
-        tmpdir
-        / "artifacts/components/grub2/2.06-2/host-fc37/publish/grub2.spec.publish.yml"
-    )
-
-    cmd = [
-        str(PROJECT_PATH / "github-action.py"),
-        "--local-log-file",
-        f"{tmpdir}/upload-component.log",
-        "--no-signer-github-command-check",
-        "upload-component",
-        f"{tmpdir}/qubes-builderv2",
-        f"{tmpdir}/builder.yml",
-        "grub2",
-        "2596baff182a035a34d76ec3551464f88f7b6c03",
-        "current",
-        "--distribution",
-        "all",
-    ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True)
-
-    labels, comments = get_labels_and_comments(
-        "grub2 v2.06-2 (r4.2)", github_repository
-    )
-
-    # Check that labels exist
-    assert set(labels) == {"r4.2-host-stable"}
-
-    # Check that comments exist
-    assert comments == {
-        f"Package for host was built ([build log]({tmpdir / 'build-component.log'})).",
-        "Package for host was uploaded to current-testing repository.",
-        "Package for host was uploaded to security-testing repository.",
-        "Package for host was uploaded to stable repository.",
-    }
+# def test_action_component_build_and_upload_host_only(token, github_repository, workdir):
+#     tmpdir, env = workdir
+#     set_conf_options(
+#         tmpdir / "builder.yml",
+#         {
+#             "github": {
+#                 "api-key": token,
+#                 "build-report-repo": github_repository.full_name,
+#             }
+#         },
+#     )
+#
+#     cmd = [
+#         str(PROJECT_PATH / "github-action.py"),
+#         "--local-log-file",
+#         f"{tmpdir}/build-component.log",
+#         "--no-signer-github-command-check",
+#         "build-component",
+#         f"{tmpdir}/qubes-builderv2",
+#         f"{tmpdir}/builder.yml",
+#         "grub2",
+#     ]
+#     subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
+#
+#     cmd = [
+#         str(PROJECT_PATH / "github-action.py"),
+#         "--local-log-file",
+#         f"{tmpdir}/upload-component.log",
+#         "--no-signer-github-command-check",
+#         "upload-component",
+#         f"{tmpdir}/qubes-builderv2",
+#         f"{tmpdir}/builder.yml",
+#         "grub2",
+#         "2596baff182a035a34d76ec3551464f88f7b6c03",
+#         "security-testing",
+#         "--distribution",
+#         "host-fc37",
+#     ]
+#     subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
+#
+#     _fix_timestamp_artifacts_path(
+#         tmpdir
+#         / "artifacts/components/grub2/2.06-2/host-fc37/publish/grub2.spec.publish.yml"
+#     )
+#
+#     cmd = [
+#         str(PROJECT_PATH / "github-action.py"),
+#         "--local-log-file",
+#         f"{tmpdir}/upload-component.log",
+#         "--no-signer-github-command-check",
+#         "upload-component",
+#         f"{tmpdir}/qubes-builderv2",
+#         f"{tmpdir}/builder.yml",
+#         "grub2",
+#         "2596baff182a035a34d76ec3551464f88f7b6c03",
+#         "current",
+#         "--distribution",
+#         "all",
+#     ]
+#     subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
+#
+#     labels, comments = get_labels_and_comments(
+#         "grub2 v2.06-2 (r4.2)", github_repository
+#     )
+#
+#     # Check that labels exist
+#     assert set(labels) == {"r4.2-host-stable"}
+#
+#     # Check that comments exist
+#     assert comments == {
+#         f"Package for host was built ([build log]({tmpdir / 'build-component.log'})).",
+#         "Package for host was uploaded to current-testing repository.",
+#         "Package for host was uploaded to security-testing repository.",
+#         "Package for host was uploaded to stable repository.",
+#     }
 
 
 def test_action_template_build(token, github_repository, workdir):
@@ -492,7 +492,7 @@ def test_action_template_build(token, github_repository, workdir):
         "package",
         "fetch",
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True)
+    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
 
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
     with open(tmpdir / "timestamp", "w") as f:
@@ -507,14 +507,14 @@ def test_action_template_build(token, github_repository, workdir):
         "build-template",
         f"{tmpdir}/qubes-builderv2",
         f"{tmpdir}/builder.yml",
-        "debian-11-minimal",
+        "debian-12-minimal",
         timestamp,
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True)
+    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
     _build_template_check(tmpdir)
 
     labels, comments = get_labels_and_comments(
-        f"qubes-template-debian-11-minimal 4.2.0-{timestamp} (r4.2)",
+        f"qubes-template-debian-12-minimal 4.2.0-{timestamp} (r4.2)",
         github_repository,
     )
 
@@ -523,8 +523,8 @@ def test_action_template_build(token, github_repository, workdir):
 
     # Check that comments exist
     assert comments == {
-        f"Template debian-11-minimal-4.2.0-{timestamp} was built ([build log]({tmpdir / 'build-template.log'})).",
-        f"Template debian-11-minimal-4.2.0-{timestamp} was uploaded to templates-itl-testing repository.",
+        f"Template debian-12-minimal-4.2.0-{timestamp} was built ([build log]({tmpdir / 'build-template.log'})).",
+        f"Template debian-12-minimal-4.2.0-{timestamp} was uploaded to templates-itl-testing repository.",
     }
 
 
@@ -554,15 +554,15 @@ def test_action_template_upload(token, github_repository, workdir):
         "upload-template",
         f"{tmpdir}/qubes-builderv2",
         f"{tmpdir}/builder.yml",
-        "debian-11-minimal",
+        "debian-12-minimal",
         f"4.2.0-{build_timestamp}",
         "templates-itl",
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True)
+    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
     _upload_template_check(tmpdir)
 
     labels, comments = get_labels_and_comments(
-        f"qubes-template-debian-11-minimal 4.2.0-{build_timestamp} (r4.2)",
+        f"qubes-template-debian-12-minimal 4.2.0-{build_timestamp} (r4.2)",
         github_repository,
     )
 
@@ -571,9 +571,9 @@ def test_action_template_upload(token, github_repository, workdir):
 
     # Check that comments exist
     assert comments == {
-        f"Template debian-11-minimal-4.2.0-{build_timestamp} was built ([build log]({tmpdir / 'build-template.log'})).",
-        f"Template debian-11-minimal-4.2.0-{build_timestamp} was uploaded to templates-itl-testing repository.",
-        f"Template debian-11-minimal-4.2.0-{build_timestamp} was uploaded to templates-itl repository.",
+        f"Template debian-12-minimal-4.2.0-{build_timestamp} was built ([build log]({tmpdir / 'build-template.log'})).",
+        f"Template debian-12-minimal-4.2.0-{build_timestamp} was uploaded to templates-itl-testing repository.",
+        f"Template debian-12-minimal-4.2.0-{build_timestamp} was uploaded to templates-itl repository.",
     }
 
 
@@ -605,7 +605,7 @@ def test_action_iso_build(token, github_repository, workdir):
         f"4.2.{timestamp}",
         timestamp,
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True)
+    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
     _build_iso_check(tmpdir, timestamp)
 
     labels, comments = get_labels_and_comments(

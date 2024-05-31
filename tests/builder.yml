@@ -9,12 +9,12 @@ github:
       components: _all_
       distributions:
         - host-fc37
-        - vm-bullseye
+        - vm-bookworm
         - vm-fc38
       templates:
         - fedora-38-xfce
-        - debian-11
-        - debian-11-minimal
+        - debian-12
+        - debian-12-minimal
     632F8C69E01B25C9E0C3ADF2F360C0D259FB650C:
       iso: true
       components: _all_
@@ -24,6 +24,9 @@ github:
 git:
   baseurl: https://github.com
   prefix: QubesOS/qubes-
+  maintainers:
+    # marmarek
+    - '0064428F455451B3EBE78A7F063938BA42CFA724'
 
 backend-vmm: xen
 debug: true
@@ -39,7 +42,7 @@ use-qubes-repo:
 
 distributions:
   - host-fc37
-  - vm-bullseye
+  - vm-bookworm
   - vm-fc38
 
 template-root-with-partitions: true
@@ -48,18 +51,23 @@ template-root-size: 15G
 templates:
   - fedora-38-xfce:
       dist: fc38
-  - debian-11:
-      dist: bullseye
+  - debian-12:
+      dist: bookworm
       options:
         - standard
         - firmware
       timeout: 7200
-  - debian-11-minimal:
-      dist: bullseye
+  - debian-12-minimal:
+      dist: bookworm
       flavor: minimal
       options:
         - no-recommends
       timeout: 7200
+
+executor:
+  type: docker
+  options:
+    image: "qubes-builder-fedora:latest"
 
 stages:
   - fetch
@@ -90,22 +98,26 @@ repository-publish:
   templates: templates-itl-testing
 
 components:
-  - app-linux-split-gpg:
-      branch: v2.0.60
-  - input-proxy:
-      url: https://github.com/QubesOS/qubes-app-linux-input-proxy
-      branch: v1.0.27
-  - input-proxy-clone:
-      url: https://github.com/QubesOS/qubes-app-linux-input-proxy
-      branch: v1.0.28
-  - grub2:
-      branch: v2.06-2
   - builder-rpm:
       packages: False
       fetch-versions-only: false
   - builder-debian:
       packages: False
       fetch-versions-only: false
+  - qubes-release:
+      packages: False
+      fetch-versions-only: false
+      branch: release4.2
+  - app-linux-split-gpg:
+      branch: v2.0.60
+  - input-proxy:
+      url: https://github.com/QubesOS/qubes-app-linux-input-proxy
+      branch: v1.0.35
+  - input-proxy-clone:
+      url: https://github.com/QubesOS/qubes-app-linux-input-proxy
+      branch: v1.0.36
+  - grub2:
+      branch: v2.06-2
 
 iso:
   kickstart: conf/iso-online-testing.ks
@@ -119,12 +131,11 @@ cache:
       - python3-devel
       - python3-setuptools
       - systemd
-  vm-bullseye:
+  vm-bookworm:
     packages:
       - fakeroot
       - libfakeroot
       - debhelper
-      - python-setuptools
       - python3-setuptools
   vm-fc38:
     packages:

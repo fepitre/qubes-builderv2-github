@@ -5,27 +5,46 @@ stages:
 variables:
   DEBUG: "1"
 
-init-cache:
-  stage: prepare
+#init-cache:
+#  stage: prepare
+#  rules:
+#    - if: $CI_COMMIT_REF_NAME == "test"
+#      when: always
+#    - when: manual
+#  artifacts:
+#    when: always
+#    paths:
+#      - cache
+#  tags:
+#    - vm
+#  before_script:
+#    # Pull docker image for using (qubes-builder) docker executor
+#    - docker pull fepitre/qubes-builder-fedora:latest
+#    - docker tag fepitre/qubes-builder-fedora:latest qubes-builder-fedora:latest
+#  script:
+#    - git clone https://github.com/QubesOS/qubes-builderv2
+#    - cd qubes-builderv2
+#    - ./qb --builder-conf "$CI_PROJECT_DIR"/tests/builder.yml package init-cache
+#    - mv artifacts/cache "$CI_PROJECT_DIR"
+
+mypy:
+  stage: test
   rules:
     - if: $CI_COMMIT_REF_NAME == "test"
       when: always
     - when: manual
-  artifacts:
-    when: always
-    paths:
-      - cache
+  image: fedora:latest
   tags:
     - vm
   before_script:
-    # Pull docker image for using (qubes-builder) docker executor
-    - docker pull fepitre/qubes-builder-fedora:latest
-    - docker tag fepitre/qubes-builder-fedora:latest qubes-builder-fedora:latest
+    - sudo dnf install -y python3-mypy python3-pip python3-pathspec git
+    - sudo python3 -m pip install types-PyYAML types-python-dateutil
+    - git clone -b main https://github.com/QubesOS/qubes-builderv2
   script:
-    - git clone https://github.com/QubesOS/qubes-builderv2
-    - cd qubes-builderv2
-    - ./qb --builder-conf "$CI_PROJECT_DIR"/tests/builder.yml package init-cache
-    - mv artifacts/cache "$CI_PROJECT_DIR"
+    - PYTHONPATH="$PWD/qubes-builderv2" MYPYPATH="$PWD/qubes-builderv2" mypy --install-types --non-interactive --junit-xml mypy.xml
+  artifacts:
+    reports:
+      junit: mypy.xml
 
 .pytest:
   stage: test
@@ -35,16 +54,17 @@ init-cache:
     - when: manual
   tags:
     - qubes
+    - vm
   artifacts:
     when: always
     paths:
       - results
   before_script:
-    - sudo dnf install -y python3-pathspec sequoia-sqv python3-pytest
+    - sudo dnf install -y python3-pathspec python3-pytest sequoia-sq sequoia-sqv sequoia-chameleon-gnupg python3-github python3-psutil
   after_script:
     - mkdir $CI_PROJECT_DIR/results
-    - cp -r ~/pytest-of-user/pytest-current/github-current/*.log $CI_PROJECT_DIR/results || true
-    - cp -r ~/pytest-of-user/pytest-current/github-current/builder-github-logs $CI_PROJECT_DIR/results/
+    - cp -r ~/pytest-of-$USER/pytest-current/github-current/*.log $CI_PROJECT_DIR/results || true
+    - cp -r ~/pytest-of-$USER/pytest-current/github-current/builder-github-logs $CI_PROJECT_DIR/results/
 
 test-action-component:
   extends: .pytest
@@ -83,33 +103,10 @@ test-rpc-iso:
 
 test-command:
   extends: .pytest
-  tags:
-    - docker
   script:
     - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_command.py
 
 test-notify:
   extends: .pytest
-  tags:
-    - docker
   script:
     - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_notify.py
-
-mypy:
-  stage: test
-  rules:
-    - if: $CI_COMMIT_REF_NAME == "test"
-      when: always
-    - when: manual
-  image: fedora:latest
-  tags:
-    - docker
-  before_script:
-    - sudo dnf install -y python3-mypy python3-pip python3-pathspec git
-    - sudo python3 -m pip install types-PyYAML types-python-dateutil
-    - git clone -b main https://github.com/QubesOS/qubes-builderv2
-  script:
-    - PYTHONPATH="$PWD/qubes-builderv2" MYPYPATH="$PWD/qubes-builderv2" mypy --install-types --non-interactive --junit-xml mypy.xml
-  artifacts:
-    reports:
-      junit: mypy.xml

@@ -132,10 +132,10 @@ def main():
             ) = command[1:]
         elif args.command == "Build-template":
             release_name, template_name, template_timestamp = command[1:]
-            timestamp = datetime.datetime.strptime(template_timestamp, "%Y%m%d%H%M")
+            timestamp = datetime.datetime.strptime(template_timestamp + "Z", "%Y%m%d%H%M%z")
         elif args.command == "Build-iso":
             release_name, iso_version, iso_timestamp = command[1:]
-            timestamp = datetime.datetime.strptime(iso_timestamp, "%Y%m%d%H%M")
+            timestamp = datetime.datetime.strptime(iso_timestamp + "Z", "%Y%m%d%H%M%z")
         elif args.command == "Upload-template":
             (
                 release_name,
@@ -149,9 +149,14 @@ def main():
         raise GithubCommandError(f"Wrong number of args provided: {str(e)}")
 
     if timestamp:
-        timestamp_max = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
-        timestamp_min = datetime.datetime.utcnow() - datetime.timedelta(hours=1)
-        if timestamp < timestamp_min or timestamp_max < timestamp:
+        # we are not seeking nanosecond precision
+        utcnow = datetime.datetime.now(datetime.UTC)
+        timestamp_max = utcnow + datetime.timedelta(minutes=5)
+        timestamp_min = utcnow - datetime.timedelta(hours=1)
+        if (
+            timestamp.timestamp() < timestamp_min.timestamp()
+            or timestamp_max.timestamp() < timestamp.timestamp()
+        ):
             raise GithubCommandError(
                 f"Timestamp outside of allowed range (min: {timestamp_min}, max: {timestamp_max}, current={timestamp}"
             )

@@ -132,10 +132,14 @@ def main():
             ) = command[1:]
         elif args.command == "Build-template":
             release_name, template_name, template_timestamp = command[1:]
-            timestamp = datetime.datetime.strptime(template_timestamp + "Z", "%Y%m%d%H%M%z")
+            timestamp = datetime.datetime.strptime(
+                template_timestamp + "Z", "%Y%m%d%H%M%z"
+            )
         elif args.command == "Build-iso":
             release_name, iso_version, iso_timestamp = command[1:]
-            timestamp = datetime.datetime.strptime(iso_timestamp + "Z", "%Y%m%d%H%M%z")
+            timestamp = datetime.datetime.strptime(
+                iso_timestamp + "Z", "%Y%m%d%H%M%z"
+            )
         elif args.command == "Upload-template":
             (
                 release_name,
@@ -217,7 +221,11 @@ def main():
         if args.local_log_file:
             github_action_cmd += ["--local-log-file", args.local_log_file]
 
-        github_action_cmd += [str(args.command).lower(), str(builder_dir), builder_conf]
+        github_action_cmd += [
+            str(args.command).lower(),
+            str(builder_dir),
+            builder_conf,
+        ]
         if args.command == "Build-component":
             assert component_name
             github_action_cmd += [component_name]

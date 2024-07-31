@@ -35,7 +35,9 @@ def find_github_action(processes, cmdline):
 
 
 def create_builders_list(directory):
-    builders = [("r4.2", f"{directory}/qubes-builderv2", f"{directory}/builder.yml")]
+    builders = [
+        ("r4.2", f"{directory}/qubes-builderv2", f"{directory}/builder.yml")
+    ]
     with open(f"{directory}/builders.list", "w") as f:
         for line in builders:
             release, builder_dir, builder_conf = line
@@ -89,7 +91,9 @@ def test_command_01_upload_component(workdir):
 
     # Write command
     with open(f"{tmpdir}/command", "w") as f:
-        f.write(f"Upload-component r4.2 app-linux-split-gpg {commit_sha} current all")
+        f.write(
+            f"Upload-component r4.2 app-linux-split-gpg {commit_sha} current all"
+        )
 
     # Dry-run
     set_dry_run(f"{tmpdir}/builder.yml")
@@ -168,7 +172,9 @@ def test_command_03_upload_template(workdir):
 
     # Write command
     with open(f"{tmpdir}/command", "w") as f:
-        f.write(f"Upload-template r4.2 debian-12 4.2.0-{timestamp} templates-itl")
+        f.write(
+            f"Upload-template r4.2 debian-12 4.2.0-{timestamp} templates-itl"
+        )
 
     # Dry-run
     set_dry_run(f"{tmpdir}/builder.yml")

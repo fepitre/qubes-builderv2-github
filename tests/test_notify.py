@@ -8,7 +8,9 @@ PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
 
 
-def test_notify_00_template_build_success_upload(token, github_repository, workdir):
+def test_notify_00_template_build_success_upload(
+    token, github_repository, workdir
+):
     tmpdir, env = workdir
     build_log = "dummy"
     # We need seconds because we create multiple issues successively.
@@ -277,8 +279,13 @@ For more information on how to test this update, please take a look at https://w
     # Check that comment exists
     comments = list(issue.get_comments())
     assert len(comments) == 2
-    assert comments[0].body == f"ISO for r4.2 was built ([build log]({build_log}))."
-    assert comments[1].body == f"ISO for r4.2 was uploaded to testing repository."
+    assert (
+        comments[0].body
+        == f"ISO for r4.2 was built ([build log]({build_log}))."
+    )
+    assert (
+        comments[1].body == f"ISO for r4.2 was uploaded to testing repository."
+    )
 
 
 def test_notify_03_iso_build_failure(token, github_repository, workdir):
@@ -339,10 +346,15 @@ def test_notify_03_iso_build_failure(token, github_repository, workdir):
     # Check that comment exists
     comments = list(issue.get_comments())
     assert len(comments) == 1
-    assert comments[0].body == f"ISO for r4.2 failed to build ([build log](dummy))."
+    assert (
+        comments[0].body
+        == f"ISO for r4.2 failed to build ([build log](dummy))."
+    )
 
 
-def test_notify_04_component_build_success_upload(token, github_repository, workdir):
+def test_notify_04_component_build_success_upload(
+    token, github_repository, workdir
+):
     tmpdir, env = workdir
     build_log = "dummy"
     distribution = "vm-fc42"
@@ -486,7 +498,8 @@ For more information on how to test this update, please take a look at https://w
     comments = list(issue.get_comments())
     assert len(comments) == 2
     assert (
-        comments[0].body == f"Package for vm-fc42 was built ([build log]({build_log}))."
+        comments[0].body
+        == f"Package for vm-fc42 was built ([build log]({build_log}))."
     )
     assert (
         comments[1].body

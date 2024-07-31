@@ -17,7 +17,9 @@ TESTUSER_FPR = "632F8C69E01B25C9E0C3ADF2F360C0D259FB650C"
 
 
 def create_builders_list(directory):
-    builders = [("r4.2", f"{directory}/qubes-builderv2", f"{directory}/builder.yml")]
+    builders = [
+        ("r4.2", f"{directory}/qubes-builderv2", f"{directory}/builder.yml")
+    ]
     with open(f"{directory}/builders.list", "w") as f:
         for line in builders:
             release, builder_dir, builder_conf = line
@@ -32,7 +34,9 @@ def fix_scripts_dir(tmpdir, logfile, env=None):
     scripts_dir = tmpdir / "qubes-builder-github"
 
     subprocess.run(
-        [f"gpg2 --export {TESTUSER_FPR} > {tmpdir}/trusted-keys-for-commands.gpg"],
+        [
+            f"gpg2 --export {TESTUSER_FPR} > {tmpdir}/trusted-keys-for-commands.gpg"
+        ],
         env=env,
         shell=True,
         check=True,
@@ -54,12 +58,16 @@ def fix_scripts_dir(tmpdir, logfile, env=None):
     os.chmod(builder_maintainers_keyring, 0o700)
 
     # Use local keyring for trusted keys for updating builders
-    content = (scripts_dir / "utils/update-qubes-builder").read_text(encoding="utf-8")
+    content = (scripts_dir / "utils/update-qubes-builder").read_text(
+        encoding="utf-8"
+    )
     content = content.replace(
         'keyring_path="$HOME/.config/qubes-builder-github/builder-maintainers-keyring"',
         f'keyring_path="{tmpdir}/builder-maintainers-keyring"',
     )
-    (scripts_dir / "utils/update-qubes-builder").write_text(content, encoding="utf-8")
+    (scripts_dir / "utils/update-qubes-builder").write_text(
+        content, encoding="utf-8"
+    )
 
     # change config_file location
     content = (scripts_dir / "lib/functions.sh").read_text(encoding="utf-8")
@@ -70,8 +78,13 @@ def fix_scripts_dir(tmpdir, logfile, env=None):
 
     (scripts_dir / "lib/functions.sh").write_text(content, encoding="utf-8")
 
-    for rpc in ["qubesbuilder.TriggerBuild", "qubesbuilder.ProcessGithubCommand"]:
-        content = (scripts_dir / f"rpc-services/{rpc}").read_text(encoding="utf-8")
+    for rpc in [
+        "qubesbuilder.TriggerBuild",
+        "qubesbuilder.ProcessGithubCommand",
+    ]:
+        content = (scripts_dir / f"rpc-services/{rpc}").read_text(
+            encoding="utf-8"
+        )
 
         # change scripts_dir location
         content = content.replace(
@@ -95,10 +108,14 @@ def fix_scripts_dir(tmpdir, logfile, env=None):
             f'keyring_path="{tmpdir}/trusted-keys-for-commands.gpg"',
         )
 
-        (scripts_dir / f"rpc-services/{rpc}").write_text(content, encoding="utf-8")
+        (scripts_dir / f"rpc-services/{rpc}").write_text(
+            content, encoding="utf-8"
+        )
 
 
-def generate_signed_upload_component_command(env, repository="current", dist="all"):
+def generate_signed_upload_component_command(
+    env, repository="current", dist="all"
+):
     return subprocess.run(
         [
             f"echo Upload-component r4.2 app-linux-split-gpg c5316c91107b8930ab4dc3341bc75293139b5b84 {repository} {dist} | gpg2 --clearsign -u {TESTUSER_FPR}"
@@ -203,7 +220,10 @@ def test_rpc_04_trigger_build(workdir):
 
     subprocess.run(
         [
-            str(tmpdir / "qubes-builder-github/rpc-services/qubesbuilder.TriggerBuild"),
+            str(
+                tmpdir
+                / "qubes-builder-github/rpc-services/qubesbuilder.TriggerBuild"
+            ),
             "app-linux-split-gpg",
         ],
         check=True,
@@ -272,7 +292,10 @@ def test_rpc_06_build_template_command(workdir):
     # fetch builder-debian, but do similarly as normally it would be done
     subprocess.run(
         [
-            str(tmpdir / "qubes-builder-github/rpc-services/qubesbuilder.TriggerBuild"),
+            str(
+                tmpdir
+                / "qubes-builder-github/rpc-services/qubesbuilder.TriggerBuild"
+            ),
             "builder-debian",
         ],
         check=True,
@@ -318,7 +341,9 @@ def test_rpc_07_upload_template_command(workdir):
     _fix_template_timestamp_repo(tmpdir)
 
     # create signed upload command for 'current' repository
-    signed_command = generate_signed_upload_template_command(env, timestamp=timestamp)
+    signed_command = generate_signed_upload_template_command(
+        env, timestamp=timestamp
+    )
     subprocess.run(
         [
             str(

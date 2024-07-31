@@ -58,7 +58,7 @@ from qubesbuilder.cli.cli_repository import (
 from qubesbuilder.cli.cli_installer import _installer_stage
 from qubesbuilder.config import Config
 from qubesbuilder.exc import ConfigError
-from qubesbuilder.log import init_logging
+from qubesbuilder.log import init_logger, get_logger
 from qubesbuilder.component import ComponentError
 from qubesbuilder.plugins import PluginError
 from qubesbuilder.pluginmanager import PluginManager
@@ -67,8 +67,9 @@ from urllib.parse import urljoin
 
 PROJECT_PATH = Path(__file__).resolve().parent
 
-log = init_logging(level="DEBUG")
-log.name = "github-action"
+init_logger(verbose=True)
+
+log = get_logger("github-action")
 
 
 def raise_timeout(signum, frame):
@@ -152,8 +153,7 @@ class BaseAutoAction(ABC):
         else:
             return f"https://github.com/{self.logs_repo}/tree/master/{log_file}"
 
-    @staticmethod
-    def display_head_info(args):
+    def display_head_info(self, args):
         pass
 
     def make_with_log(self, func, *args, **kwargs):
@@ -271,7 +271,9 @@ class AutoAction(BaseAutoAction):
             "repository-publish", {}
         ).get("components", None)
         if not self.repository_publish:
-            raise AutoActionError(f"No repository defined for component publication.")
+            raise AutoActionError(
+                f"No repository defined for component publication."
+            )
 
         self.timeout = self.component.timeout
 
@@ -307,7 +309,9 @@ class AutoAction(BaseAutoAction):
     def notify_build_status_on_timeout(self):
         for dist in self.distributions:
             if dist.name not in self.built_for_dist:
-                self.notify_build_status(dist, "failed", additional_info="Timeout")
+                self.notify_build_status(
+                    dist, "failed", additional_info="Timeout"
+                )
 
     def notify_build_status(
         self, dist, status, stage="build", log_file=None, additional_info=None
@@ -389,7 +393,9 @@ class AutoAction(BaseAutoAction):
         log.debug(f">> component:")
         log.debug(f">>   {self.component}")
         try:
-            log.debug(f">>     commit-hash: {self.component.get_source_commit_hash()}")
+            log.debug(
+                f">>     commit-hash: {self.component.get_source_commit_hash()}"
+            )
             log.debug(f">>     source-hash: {self.component.get_source_hash()}")
         except ComponentError:
             # we may have not yet source (like calling fetch stage)
@@ -514,7 +520,10 @@ class AutoAction(BaseAutoAction):
                     self.notify_upload_status(dist, upload_log_file)
                 except AutoActionError as autobuild_exc:
                     self.notify_build_status(
-                        dist, "failed", stage="upload", log_file=autobuild_exc.log_file
+                        dist,
+                        "failed",
+                        stage="upload",
+                        log_file=autobuild_exc.log_file,
                     )
                     pass
                 except TimeoutError as timeout_exc:
@@ -565,7 +574,9 @@ class AutoActionTemplate(BaseAutoAction):
             "repository-publish", {}
         ).get("templates", None)
         if not self.repository_publish:
-            raise AutoActionError(f"No repository defined for template publication.")
+            raise AutoActionError(
+                f"No repository defined for template publication."
+            )
 
         self.timeout = self.templates[0].timeout
 
@@ -735,7 +746,9 @@ class AutoActionTemplate(BaseAutoAction):
                 )
                 pass
             except TimeoutError as timeout_exc:
-                raise AutoActionTimeout("Timeout reached for build!") from timeout_exc
+                raise AutoActionTimeout(
+                    "Timeout reached for build!"
+                ) from timeout_exc
             except Exception as exc:
                 self.notify_build_status(
                     "failed",
@@ -751,7 +764,9 @@ class AutoActionTemplate(BaseAutoAction):
             / f"build_timestamp_{self.templates[0].name}"
         )
         if not timestamp_file.exists():
-            raise AutoActionError("Cannot upload template, no build timestamp found.")
+            raise AutoActionError(
+                "Cannot upload template, no build timestamp found."
+            )
         try:
             timestamp_existing = datetime.datetime.strptime(
                 timestamp_file.read_text().rstrip("\n"), "%Y%m%d%H%M"
@@ -777,7 +792,9 @@ class AutoActionTemplate(BaseAutoAction):
                 )
                 pass
             except TimeoutError as timeout_exc:
-                raise AutoActionTimeout("Timeout reached for upload!") from timeout_exc
+                raise AutoActionTimeout(
+                    "Timeout reached for upload!"
+                ) from timeout_exc
             except Exception as exc:
                 self.notify_build_status(
                     "failed",
@@ -823,12 +840,16 @@ class AutoActionISO(BaseAutoAction):
                     datetime.datetime.strptime(iso_timestamp, "%Y%m%d%H%M")
                 )
             except (OSError, ValueError) as exc:
-                raise AutoActionError(f"Failed to parse timestamp: {str(exc)}") from exc
+                raise AutoActionError(
+                    f"Failed to parse timestamp: {str(exc)}"
+                ) from exc
         else:
             self.iso_timestamp = ""
 
         host_distributions = [
-            d for d in self.config.get_distributions() if d.package_set == "host"
+            d
+            for d in self.config.get_distributions()
+            if d.package_set == "host"
         ]
         if len(host_distributions) != 1:
             raise AutoActionError(
@@ -836,9 +857,13 @@ class AutoActionISO(BaseAutoAction):
             )
         self.dist = host_distributions[0]
         self.iso_version = self.commit_sha
-        self.iso_base_url = self.config.get("github", {}).get("iso-base-url", None)
+        self.iso_base_url = self.config.get("github", {}).get(
+            "iso-base-url", None
+        )
 
-        if not self.config.get("repository-upload-remote-host", {}).get("iso", None):
+        if not self.config.get("repository-upload-remote-host", {}).get(
+            "iso", None
+        ):
             raise AutoActionError(
                 f"No remote host configured in builder configuration file!"
             )
@@ -937,11 +962,17 @@ class AutoActionISO(BaseAutoAction):
         )
 
     def trigger_openqa(self):
-        openqa_client_path = (Path.home() / ".config/openqa/client.conf").resolve()
+        openqa_client_path = (
+            Path.home() / ".config/openqa/client.conf"
+        ).resolve()
         if not openqa_client_path.exists():
-            log.debug(f"Cannot find openQA configuration file: {openqa_client_path}")
+            log.debug(
+                f"Cannot find openQA configuration file: {openqa_client_path}"
+            )
             return
-        if not (OpenQA_Client and OpenQAClientError and callable(OpenQA_Client)):
+        if not (
+            OpenQA_Client and OpenQAClientError and callable(OpenQA_Client)
+        ):
             log.debug(
                 "Cannot trigger openQA. Check if 'python3-openqa_client' is installed."
             )
@@ -964,7 +995,9 @@ class AutoActionISO(BaseAutoAction):
                 return
             client = OpenQA_Client()
             if client.openqa_request("POST", "isos", params):
-                additional_info = f"see [openQA]({job_url}) test result overview"
+                additional_info = (
+                    f"see [openQA]({job_url}) test result overview"
+                )
                 return additional_info
         except OpenQAClientError as exc:
             log.error(str(exc))
@@ -1019,7 +1052,9 @@ class AutoActionISO(BaseAutoAction):
                 )
                 pass
             except TimeoutError as timeout_exc:
-                raise AutoActionTimeout("Timeout reached for build!") from timeout_exc
+                raise AutoActionTimeout(
+                    "Timeout reached for build!"
+                ) from timeout_exc
             except Exception as exc:
                 self.notify_build_status(
                     "failed",
@@ -1044,7 +1079,9 @@ def main():
         help="Signer GitHub command fingerprint.",
     )
     parser.add_argument("--dry-run", action="store_true", default=False)
-    parser.add_argument("--state-dir", default=Path.home() / "github-notify-state")
+    parser.add_argument(
+        "--state-dir", default=Path.home() / "github-notify-state"
+    )
     parser.add_argument(
         "--local-log-file",
         help="Use local log file instead of qubesbuilder.BuildLog RPC.",
@@ -1067,7 +1104,9 @@ def main():
     upload_component_parser.add_argument("component_name")
     upload_component_parser.add_argument("commit_sha")
     upload_component_parser.add_argument("repository_publish")
-    upload_component_parser.add_argument("--distribution", nargs="+", default=[])
+    upload_component_parser.add_argument(
+        "--distribution", nargs="+", default=[]
+    )
 
     # build template parser
     build_template_parser = subparsers.add_parser("build-template")
@@ -1132,9 +1171,13 @@ def main():
     if args.command in ("build-component", "upload-component"):
         distributions = config.get_distributions()
         try:
-            components = config.get_components([args.component_name], url_match=True)
+            components = config.get_components(
+                [args.component_name], url_match=True
+            )
         except ConfigError as e:
-            raise AutoActionError(f"No such component '{args.component_name}'.") from e
+            raise AutoActionError(
+                f"No such component '{args.component_name}'."
+            ) from e
 
         # maintainers checks
         if not args.no_signer_github_command_check:
@@ -1146,7 +1189,9 @@ def main():
                 .get("components", [])
             )
             if allowed_components != "_all_":
-                components = [c for c in components if c.name in allowed_components]
+                components = [
+                    c for c in components if c.name in allowed_components
+                ]
             if not components:
                 log.info("Cannot find any allowed components.")
                 return
@@ -1160,7 +1205,9 @@ def main():
                     .get("distributions", [])
                 )
                 if allowed_distributions == "_all_":
-                    allowed_distributions = [d.distribution for d in distributions]
+                    allowed_distributions = [
+                        d.distribution for d in distributions
+                    ]
                 if args.distribution == ["all"]:
                     args.distribution = [d.distribution for d in distributions]
                 distributions = [
@@ -1250,7 +1297,11 @@ def main():
 
     for cli in cli_list:
         try:
-            if args.command in ("build-component", "build-template", "build-iso"):
+            if args.command in (
+                "build-component",
+                "build-template",
+                "build-iso",
+            ):
                 cli.build()
             elif args.command in ("upload-component", "upload-template"):
                 cli.upload()

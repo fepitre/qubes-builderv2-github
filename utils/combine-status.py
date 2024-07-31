@@ -113,7 +113,9 @@ def main():
     args = parser.parse_args()
 
     if not args.input_dir and not args.use_existing_status_yaml_file:
-        raise ValueError("Please provide either input directory or status.yml file.")
+        raise ValueError(
+            "Please provide either input directory or status.yml file."
+        )
 
     if args.input_dir:
         input_dir = Path(args.input_dir).expanduser().resolve()
@@ -122,7 +124,10 @@ def main():
 
     if args.use_existing_status_yaml_file:
         status = yaml.safe_load(
-            Path(args.use_existing_status_yaml_file).expanduser().resolve().read_text()
+            Path(args.use_existing_status_yaml_file)
+            .expanduser()
+            .resolve()
+            .read_text()
         )
     else:
         status = {}
@@ -136,7 +141,9 @@ def main():
         # component
         release_component_files = {}  # type: ignore
         for f in input_dir.glob("builder-*-status-component.yml"):
-            release = re.match(r".*builder-(r[0-9.]*)-.*-status-component.yml", str(f))
+            release = re.match(
+                r".*builder-(r[0-9.]*)-.*-status-component.yml", str(f)
+            )
             if not release:
                 continue
             release_component_files.setdefault(release.group(1), [])
@@ -145,7 +152,9 @@ def main():
         # template
         release_template_files = {}  # type: ignore
         for f in input_dir.glob("builder-*-status-template.yml"):
-            release = re.match(r".*builder-(r[0-9.]*)-.*-status-template.yml", str(f))
+            release = re.match(
+                r".*builder-(r[0-9.]*)-.*-status-template.yml", str(f)
+            )
             if not release:
                 continue
             release_template_files.setdefault(release.group(1), [])
@@ -161,10 +170,12 @@ def main():
                 content = yaml.safe_load(f.read_text())
                 for component in content:
                     for distribution in content[component]:
-                        status[release]["component"].setdefault(distribution, {})
-                        status[release]["component"][distribution][component] = content[
+                        status[release]["component"].setdefault(
+                            distribution, {}
+                        )
+                        status[release]["component"][distribution][
                             component
-                        ][distribution]
+                        ] = content[component][distribution]
 
         for release in release_template_files:
             for f in release_template_files[release]:

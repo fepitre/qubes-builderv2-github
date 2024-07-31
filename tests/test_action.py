@@ -105,7 +105,9 @@ def _fix_timestamp_artifacts_path(artifacts_path):
     timestamp = None
     for repo in info["repository-publish"]:
         if repo["name"] == "current-testing":
-            timestamp = datetime.datetime.strptime(repo["timestamp"], "%Y%m%d%H%M")
+            timestamp = datetime.datetime.strptime(
+                repo["timestamp"], "%Y%m%d%H%M"
+            )
             break
 
     if not timestamp:
@@ -113,9 +115,9 @@ def _fix_timestamp_artifacts_path(artifacts_path):
 
     for repo in info["repository-publish"]:
         if repo["name"] == "current-testing":
-            repo["timestamp"] = (timestamp - datetime.timedelta(days=7)).strftime(
-                "%Y%m%d%H%M"
-            )
+            repo["timestamp"] = (
+                timestamp - datetime.timedelta(days=7)
+            ).strftime("%Y%m%d%H%M")
             break
 
     with open(artifacts_path, "w") as f:
@@ -208,7 +210,11 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
 
     # vm-bookworm
     repository_dir = tmpdir / "artifacts/repository-publish/deb/r4.2/vm"
-    for codename in ["bookworm-testing", "bookworm-securitytesting", "bookworm"]:
+    for codename in [
+        "bookworm-testing",
+        "bookworm-securitytesting",
+        "bookworm",
+    ]:
         packages = deb_packages_list(repository_dir, codename)
         expected_packages = [
             f"{codename}|main|amd64: qubes-gpg-split 2.0.60-1+deb12u1",
@@ -230,11 +236,15 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
 
 
 def _build_template_check(tmpdir):
-    assert (tmpdir / f"artifacts/templates/debian-12-minimal.publish.yml").exists()
+    assert (
+        tmpdir / f"artifacts/templates/debian-12-minimal.publish.yml"
+    ).exists()
 
 
 def _fix_template_timestamp_repo(tmpdir):
-    artifacts_path = tmpdir / f"artifacts/templates/debian-12-minimal.publish.yml"
+    artifacts_path = (
+        tmpdir / f"artifacts/templates/debian-12-minimal.publish.yml"
+    )
     info = yaml.safe_load(artifacts_path.read())
     publish_timestamp = None
     for repo in info["repository-publish"]:
@@ -267,16 +277,16 @@ def _upload_template_check(tmpdir):
         f"qubes-template-debian-12-minimal-4.2.0-{build_timestamp}.noarch.rpm",
     ]
     for repository in ["templates-itl-testing", "templates-itl"]:
-        repository_dir = (
-            f"file://{tmpdir}/artifacts/repository-publish/rpm/r4.2/{repository}"
-        )
+        repository_dir = f"file://{tmpdir}/artifacts/repository-publish/rpm/r4.2/{repository}"
         packages = rpm_packages_list(repository_dir)
         assert set(rpms) == set(packages)
 
 
 def _build_iso_check(tmpdir, timestamp):
     iso_file = tmpdir / f"artifacts/iso/Qubes-4.2.{timestamp}-x86_64.iso"
-    latest_timestamp_file = tmpdir / f"artifacts/installer/latest_fc37_iso_timestamp"
+    latest_timestamp_file = (
+        tmpdir / f"artifacts/installer/latest_fc37_iso_timestamp"
+    )
 
     assert iso_file.exists()
     assert latest_timestamp_file.exists()

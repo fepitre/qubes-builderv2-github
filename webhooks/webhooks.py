@@ -58,7 +58,9 @@ def read_config():
       ]
     }
     """
-    config_path = os.environ.get("WEBHOOKS_CONFIG", "/home/user/webhooks/webhooks.conf")
+    config_path = os.environ.get(
+        "WEBHOOKS_CONFIG", "/home/user/webhooks/webhooks.conf"
+    )
     with open(config_path, "r") as cfd:
         conf = json.loads(cfd.read())
 
@@ -95,18 +97,29 @@ def run(service_name):
         return Response("OK", status=200, mimetype="text/plain")
 
     payload_data = request.data
-    if 'webhook_secret' in webhooks_config:
+    if "webhook_secret" in webhooks_config:
         if event_type_github:
-            hmac_value = 'sha256=' + hmac.new(webhooks_config['webhook_secret'].encode(),
-                                              payload_data,
-                                              hashlib.sha256).hexdigest()
-            if hmac_value != request.headers.get('X-Hub-Signature-256'):
-                return Response('invalid hmac', status=403, mimetype='text/plain')
+            hmac_value = (
+                "sha256="
+                + hmac.new(
+                    webhooks_config["webhook_secret"].encode(),
+                    payload_data,
+                    hashlib.sha256,
+                ).hexdigest()
+            )
+            if hmac_value != request.headers.get("X-Hub-Signature-256"):
+                return Response(
+                    "invalid hmac", status=403, mimetype="text/plain"
+                )
         elif event_type_gitlab:
-            if webhooks_config['webhook_secret'] != request.headers.get('X-Gitlab-Token'):
-                return Response('invalid token', status=403, mimetype='text/plain')
+            if webhooks_config["webhook_secret"] != request.headers.get(
+                "X-Gitlab-Token"
+            ):
+                return Response(
+                    "invalid token", status=403, mimetype="text/plain"
+                )
         else:
-            return Reponse('no even type', status=400, mimetype='text/plain')
+            return Reponse("no even type", status=400, mimetype="text/plain")
 
     if service_name not in webhooks_config.get("services", []):
         raise ApiError("Unknown service", status_code=404)

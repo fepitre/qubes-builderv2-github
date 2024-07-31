@@ -64,7 +64,9 @@ class Service:
 
         # skip comment not having signed part at all
         try:
-            offset = comment_body.index(b"-----BEGIN PGP SIGNED MESSAGE-----\nHash: ")
+            offset = comment_body.index(
+                b"-----BEGIN PGP SIGNED MESSAGE-----\nHash: "
+            )
         except ValueError:
             return
         comment_body = comment_body[offset:]

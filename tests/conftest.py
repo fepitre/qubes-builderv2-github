@@ -85,7 +85,7 @@ executor:
 """
         )
 
-    # Clone qubes-builderv2
+    # Clone qubes-builderv2 (GitLab)
     subprocess.run(
         [
             "git",
@@ -93,10 +93,12 @@ executor:
             str(tmpdir),
             "clone",
             "-b",
-            "main",
+            os.getenv("CI_QUBES_BUILDER_BRANCH", "main"),
             "--recurse-submodules",
-            "https://github.com/QubesOS/qubes-builderv2",
-        ]
+            "https://gitlab.com/QubesOS/qubes-builderv2",
+        ],
+        check=True,
+        capture_output=True,
     )
 
     shutil.copytree(PROJECT_PATH, tmpdir / "qubes-builder-github")
@@ -107,9 +109,9 @@ executor:
     # We prevent rpm to find ~/.rpmmacros and put logs into workdir
     env["HOME"] = tmpdir
     # Set PYTHONPATH with cloned qubes-builderv2
-    env[
-        "PYTHONPATH"
-    ] = f"{tmpdir / 'qubes-builderv2'!s}:{os.environ.get('PYTHONPATH','')}"
+    env["PYTHONPATH"] = (
+        f"{tmpdir / 'qubes-builderv2'!s}:{os.environ.get('PYTHONPATH','')}"
+    )
 
     if env.get("CI_PROJECT_DIR", None):
         cache_dir = (Path(env["CI_PROJECT_DIR"]) / "cache").resolve()

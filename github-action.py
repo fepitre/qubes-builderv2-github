@@ -153,8 +153,7 @@ class BaseAutoAction(ABC):
         else:
             return f"https://github.com/{self.logs_repo}/tree/master/{log_file}"
 
-    @staticmethod
-    def display_head_info(args):
+    def display_head_info(self, args):
         pass
 
     def make_with_log(self, func, *args, **kwargs):

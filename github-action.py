@@ -29,7 +29,6 @@
 
 import argparse
 import datetime
-import logging
 import os
 import signal
 import subprocess
@@ -58,7 +57,12 @@ from qubesbuilder.cli.cli_repository import (
 from qubesbuilder.cli.cli_installer import _installer_stage
 from qubesbuilder.config import Config
 from qubesbuilder.exc import ConfigError
-from qubesbuilder.log import init_logger, get_logger
+from qubesbuilder.log import (
+    init_logger,
+    QubesBuilderLogger,
+    create_file_handler,
+    create_console_handler,
+)
 from qubesbuilder.component import ComponentError
 from qubesbuilder.plugins import PluginError
 from qubesbuilder.pluginmanager import PluginManager
@@ -68,8 +72,7 @@ from urllib.parse import urljoin
 PROJECT_PATH = Path(__file__).resolve().parent
 
 init_logger(verbose=True)
-
-log = get_logger("github-action")
+log = QubesBuilderLogger
 
 
 def raise_timeout(signum, frame):
@@ -168,7 +171,7 @@ class BaseAutoAction(ABC):
             return self.make_with_log_qrexec(func, *args, **kwargs)
 
     def make_with_log_local(self, func, *args, **kwargs):
-        log_fh = logging.FileHandler(self.local_log_file)
+        log_fh = create_file_handler(self.local_log_file)
         log.addHandler(log_fh)
         log.debug("> starting build with log")
         self.display_head_info(args)
@@ -191,7 +194,7 @@ class BaseAutoAction(ABC):
         ) as p:
             assert p.stdin is not None
             assert p.stdout is not None
-            qrexec_stream = logging.StreamHandler(stream=p.stdin)
+            qrexec_stream = create_console_handler(True, stream=p.stdin)
 
             log.addHandler(qrexec_stream)
             log.debug("> starting build with log")

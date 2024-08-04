@@ -95,7 +95,10 @@ executor:
             "-b",
             os.getenv("CI_QUBES_BUILDER_BRANCH", "main"),
             "--recurse-submodules",
-            "https://gitlab.com/QubesOS/qubes-builderv2",
+            os.getenv(
+                "CI_QUBES_BUILDER_URL",
+                "https://gitlab.com/QubesOS/qubes-builderv2",
+            ),
         ],
         check=True,
         capture_output=True,

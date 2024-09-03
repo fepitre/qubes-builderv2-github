@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+
+import tempfile
+import io
+import sys
+import os
+import errno
+import shutil
+import string
+import subprocess
+from datetime import datetime
+
+XZ_THRESHOLD = 10 * 2 ** 20
+
+def sanitize_line(untrusted_line):
+    line = bytearray(untrusted_line)
+    for i, c in enumerate(line):
+        if 0x20 <= c <= 0x7e:
+            pass
+        else:
+            line[i] = 0x2e
+    return bytearray(line).decode('ascii')
+
+
+try:
+    stdin = sys.stdin.buffer  # python3
+except AttributeError:
+    stdin = io.open(0, 'rb')  # python2
+
+start = datetime.utcnow()
+
+tmp_log = tempfile.NamedTemporaryFile(prefix="qubes-build-log_", delete=False)
+
+qrexec_remote = os.getenv('QREXEC_REMOTE_DOMAIN')
+if not qrexec_remote:
+    print('ERROR: QREXEC_REMOTE_DOMAIN not set', file=sys.stderr)
+    sys.exit(1)
+
+subdir_name = ''
+if len(sys.argv) > 1:
+    untrusted_subdir_name = sys.argv[1]
+    allowed_chars = string.ascii_letters + string.digits + '-_'
+    subdir_name = ''.join(c if c in allowed_chars else '_' for c in untrusted_subdir_name)
+
+def log(msg, remote=True, now=None):
+    if now is None:
+        now = datetime.utcnow()
+    if remote:
+        remote_str = '{}:'.format(qrexec_remote)
+    else:
+        remote_str = '>'
+
+    line = '{:%F %T.%f} +0000 {} {}\n'.format(now, remote_str, msg)
+
+    tmp_log.write(line.encode('utf-8'))
+
+
+log('starting log', now=start, remote=False)
+
+while True:
+    untrusted_line = stdin.readline()
+    if untrusted_line == b'':
+        break
+
+    log(sanitize_line(untrusted_line.rstrip(b'\n')))
+
+log('closing log', remote=False)
+tmp_log.close()
+
+file_name_base = os.path.join(
+    os.getenv('HOME', '/'),
+    'QubesIncomingBuildLog',
+    '{remote}',
+    subdir_name,
+    'log_{time:%Y-%m-%d_%H-%M-%S}').format(
+    remote=qrexec_remote,
+    time=start)
+
+try:
+    os.makedirs(os.path.dirname(file_name_base))
+except OSError as err:
+    if err.errno != errno.EEXIST:
+        raise
+
+try_no = 0
+file_name = file_name_base
+while True:
+    if try_no > 0:
+        file_name = '{}.{}'.format(file_name_base, try_no)
+
+    try:
+        # check both compressed and uncompressed files availability, continue
+        # only if both are unused at the same time
+        fd = os.open(file_name, os.O_CREAT | os.O_EXCL, 0o664)
+        fd2 = os.open(file_name + '.xz', os.O_CREAT | os.O_EXCL, 0o664)
+    except OSError as err:
+        if err.errno == errno.EEXIST:
+            try_no += 1
+            continue
+        raise
+
+    os.close(fd)
+    os.close(fd2)
+    break
+
+shutil.move(tmp_log.name, file_name)
+if os.path.getsize(file_name) > XZ_THRESHOLD:
+    subprocess.check_call(['xz', '--force', file_name],
+                          stdout=subprocess.DEVNULL,
+                          stdin=subprocess.DEVNULL)
+    file_name += '.xz'
+else:
+    os.unlink(file_name + '.xz')
+
+# report actually used file name to the build domain
+print(os.path.relpath(
+    file_name, '{}/QubesIncomingBuildLog'.format(os.getenv('HOME', '/'))))
+
+# at the end execute post-log-hook if exists, for possible log uploading
+hook_path = '{}/QubesIncomingBuildLog/post-log-hook'. \
+    format(os.getenv('HOME', '/'))
+if os.path.exists(hook_path):
+    # connect I/O to /dev/null, as we're running as qrexec service, so that
+    # would be sent to the remote domain
+    subprocess.check_call([hook_path, file_name],
+                          stdout=open(os.devnull, 'w'),
+                          stderr=open(os.devnull, 'w'),
+                          stdin=open(os.devnull, 'r'))

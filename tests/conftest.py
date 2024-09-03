@@ -56,8 +56,22 @@ def github_repository(token):
 
 
 @pytest.fixture(scope="session")
-def workdir(tmpdir_factory):
+def base_workdir(tmpdir_factory):
     tmpdir = tmpdir_factory.mktemp("github-")
+    shutil.copytree(PROJECT_PATH, tmpdir / "qubes-builder-github")
+
+    env = os.environ.copy()
+    # Enforce keyring location
+    env["GNUPGHOME"] = tmpdir / ".gnupg"
+    # We prevent rpm to find ~/.rpmmacros and put logs into workdir
+    env["HOME"] = tmpdir
+
+    yield tmpdir, env
+
+
+@pytest.fixture(scope="session")
+def workdir(base_workdir):
+    tmpdir, env = base_workdir
 
     # Better copy testing keyring into a separate directory to prevent locks inside
     # local sources (when executed locally).
@@ -104,13 +118,8 @@ executor:
         capture_output=True,
     )
 
-    shutil.copytree(PROJECT_PATH, tmpdir / "qubes-builder-github")
-
-    env = os.environ.copy()
     # Enforce keyring location
     env["GNUPGHOME"] = tmpdir / ".gnupg"
-    # We prevent rpm to find ~/.rpmmacros and put logs into workdir
-    env["HOME"] = tmpdir
     # Set PYTHONPATH with cloned qubes-builderv2
     env["PYTHONPATH"] = (
         f"{tmpdir / 'qubes-builderv2'!s}:{os.environ.get('PYTHONPATH','')}"
@@ -122,7 +131,6 @@ executor:
             shutil.copytree(cache_dir, tmpdir / "artifacts/cache")
 
     yield tmpdir, env
-    # shutil.rmtree(tmpdir)
 
 
 def set_conf_options(builder_conf, options):

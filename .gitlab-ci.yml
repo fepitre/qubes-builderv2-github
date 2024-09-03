@@ -59,6 +59,11 @@ mypy:
     - cp -r ~/pytest-of-$USER/pytest-current/github-current/*.log $CI_PROJECT_DIR/results || true
     - cp -r ~/pytest-of-$USER/pytest-current/github-current/builder-github-logs $CI_PROJECT_DIR/results/
 
+test-common:
+  extends: .pytest
+  script:
+    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_common.py
+
 test-action-component:
   extends: .pytest
   script:

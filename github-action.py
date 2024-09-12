@@ -30,6 +30,7 @@
 import argparse
 import datetime
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -73,6 +74,22 @@ PROJECT_PATH = Path(__file__).resolve().parent
 
 init_logger(verbose=True)
 log = QubesBuilderLogger
+
+
+def get_log_file_from_qubesbuilder_buildlog(stdout, logger=None):
+    lines = str(stdout).splitlines()
+    if not stdout or not lines:
+        if logger:
+            logger.error(
+                "No output from qubesbuilder.BuildLog. Any policy RPC or LogVM issue?"
+            )
+    if re.match(r"^.*[\S\w.-]+/log_[\S\w.-]+$", lines[0]):
+        return lines[0]
+    else:
+        if logger:
+            logger.error(
+                "Cannot parse log file provided by qubesbuilder.BuildLog RPC."
+            )
 
 
 def raise_timeout(signum, frame):
@@ -205,14 +222,16 @@ class BaseAutoAction(ABC):
             except PluginError as e:
                 p.stdin.close()
                 p.wait()
-                log_file_list = list(p.stdout)
-                log_file = log_file_list[0].rstrip("\n")
+                log_file = get_log_file_from_qubesbuilder_buildlog(
+                    p.stdout, log
+                )
                 raise AutoActionError(e.args, log_file=log_file) from e
             else:
                 p.stdin.close()
                 p.wait()
-                log_file_list = list(p.stdout)
-                log_file = log_file_list[0].rstrip("\n")
+                log_file = get_log_file_from_qubesbuilder_buildlog(
+                    p.stdout, log
+                )
             finally:
                 log.removeHandler(qrexec_stream)
             return log_file

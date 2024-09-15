@@ -77,7 +77,7 @@ log = QubesBuilderLogger
 
 
 def get_log_file_from_qubesbuilder_buildlog(stdout, logger=None):
-    lines = str(stdout).splitlines()
+    lines = stdout.decode().splitlines()
     if not stdout or not lines:
         if logger:
             logger.error(

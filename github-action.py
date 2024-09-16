@@ -223,14 +223,14 @@ class BaseAutoAction(ABC):
                 p.stdin.close()
                 p.wait()
                 log_file = get_log_file_from_qubesbuilder_buildlog(
-                    p.stdout, log
+                    p.stdout.read(), log
                 )
                 raise AutoActionError(e.args, log_file=log_file) from e
             else:
                 p.stdin.close()
                 p.wait()
                 log_file = get_log_file_from_qubesbuilder_buildlog(
-                    p.stdout, log
+                    p.stdout.read(), log
                 )
             finally:
                 log.removeHandler(qrexec_stream)

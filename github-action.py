@@ -41,6 +41,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import List
 
+import yaml
+
 try:
     from openqa_client.client import OpenQA_Client
     from openqa_client.exceptions import OpenQAClientError
@@ -716,17 +718,18 @@ class AutoActionTemplate(BaseAutoAction):
         timestamp_file = (
             self.config.artifacts_dir
             / "templates"
-            / f"build_timestamp_{self.templates[0].name}"
+            / f"{self.templates[0].name}.build.yml"
         )
         if timestamp_file.exists():
             try:
+                info = yaml.safe_load(timestamp_file.read_text())
                 timestamp_existing = datetime.datetime.strptime(
-                    timestamp_file.read_text().rstrip("\n"), "%Y%m%d%H%M"
+                    info["timestamp"], "%Y%m%d%H%M"
                 )
                 template_timestamp = datetime.datetime.strptime(
                     self.template_timestamp, "%Y%m%d%H%M"
                 )
-            except (OSError, ValueError) as exc:
+            except (OSError, ValueError, KeyError, yaml.YAMLError) as exc:
                 raise AutoActionError(
                     f"Failed to read or parse timestamp: {str(exc)}"
                 ) from exc
@@ -780,20 +783,21 @@ class AutoActionTemplate(BaseAutoAction):
                 pass
 
     def upload(self):
-        timestamp_file = (
+        upload_artifact_file = (
             self.config.artifacts_dir
             / "templates"
-            / f"build_timestamp_{self.templates[0].name}"
+            / f"{self.templates[0].name}.publish.yml"
         )
-        if not timestamp_file.exists():
+        if not upload_artifact_file.exists():
             raise AutoActionError(
-                "Cannot upload template, no build timestamp found."
+                "Cannot upload template, no upload artifact found!"
             )
         try:
+            artifact = yaml.safe_load(upload_artifact_file.read_text())
             timestamp_existing = datetime.datetime.strptime(
-                timestamp_file.read_text().rstrip("\n"), "%Y%m%d%H%M"
+                artifact["timestamp"], "%Y%m%d%H%M"
             ).strftime("%Y%m%d%H%M")
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, KeyError, yaml.YAMLError) as exc:
             raise AutoActionError(
                 f"Failed to read or parse timestamp: {str(exc)}"
             ) from exc

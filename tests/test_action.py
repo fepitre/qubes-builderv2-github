@@ -267,11 +267,10 @@ def _fix_template_timestamp_repo(tmpdir):
     with open(artifacts_path, "w") as f:
         f.write(yaml.dump(info))
 
+    return info
 
-def _upload_template_check(tmpdir):
-    with open(tmpdir / "timestamp", "r") as f:
-        build_timestamp = f.read().rstrip("\n")
 
+def _upload_template_check(tmpdir, build_timestamp):
     # host-fc37
     rpms = [
         f"qubes-template-debian-12-minimal-4.2.0-{build_timestamp}.noarch.rpm",
@@ -550,10 +549,8 @@ def test_action_template_upload(token, github_repository, workdir):
         },
     )
 
-    with open(tmpdir / "timestamp", "r") as f:
-        build_timestamp = f.read().rstrip("\n")
-
-    _fix_template_timestamp_repo(tmpdir)
+    info = _fix_template_timestamp_repo(tmpdir)
+    build_timestamp = info["timestamp"]
 
     cmd = [
         str(PROJECT_PATH / "github-action.py"),
@@ -569,7 +566,7 @@ def test_action_template_upload(token, github_repository, workdir):
         "templates-itl",
     ]
     subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
-    _upload_template_check(tmpdir)
+    _upload_template_check(tmpdir, build_timestamp)
 
     labels, comments = get_labels_and_comments(
         f"qubes-template-debian-12-minimal 4.2.0-{build_timestamp} (r4.2)",

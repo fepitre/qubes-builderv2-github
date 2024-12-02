@@ -358,7 +358,7 @@ def test_rpc_07_upload_template_command(workdir):
     )
 
     # check everything is in repositories as expected
-    _upload_template_check(tmpdir)
+    _upload_template_check(tmpdir, timestamp)
 
 
 def test_rpc_08_build_iso_command(workdir):

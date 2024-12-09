@@ -444,7 +444,7 @@ class AutoAction(BaseAutoAction):
                 .get(dist.distribution, {})
                 .get("tag", None)
                 != "no version tag"
-            ):
+            ) or self.dry_run:
                 with timeout(self.timeout):
                     stage = "build"
                     try:
@@ -1133,6 +1133,9 @@ def main():
     cli_list: List[BaseAutoAction] = []
 
     config = Config(args.builder_conf)
+
+    dry_run = args.dry_run or config.get("github", {}).get("dry-run", False)
+
     if args.command in ("build-component", "upload-component"):
         distributions = config.get_distributions()
         try:
@@ -1195,7 +1198,7 @@ def main():
                     commit_sha=commit_sha,
                     repository_publish=repository_publish,
                     local_log_file=local_log_file,
-                    dry_run=args.dry_run,
+                    dry_run=dry_run,
                 )
             )
     elif args.command in ("build-template", "upload-template"):
@@ -1225,7 +1228,7 @@ def main():
                 commit_sha=commit_sha,
                 repository_publish=repository_publish,
                 local_log_file=local_log_file,
-                dry_run=args.dry_run,
+                dry_run=dry_run,
             )
         )
     elif args.command == "build-iso":
@@ -1249,15 +1252,10 @@ def main():
                 commit_sha=commit_sha,
                 repository_publish=repository_publish,
                 local_log_file=local_log_file,
-                dry_run=args.dry_run,
+                dry_run=dry_run,
             )
         )
     else:
-        return
-
-    if config.get("github", {}).get("dry-run", False):
-        # Dry-run mode (for tests only)
-        time.sleep(1)
         return
 
     for cli in cli_list:

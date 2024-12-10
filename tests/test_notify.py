@@ -8,7 +8,7 @@ PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
 
 
-def test_notify_00_template_build_success_upload(
+def test_notify_000_template_build_success_upload(
     token, github_repository, workdir
 ):
     tmpdir, env = workdir
@@ -86,7 +86,7 @@ For more information on how to test this update, please take a look at https://w
     #
     upload_repository = "templates-itl-testing"
     cmd = [
-        PROJECT_PATH / "utils/notify_issues.py",
+        str(PROJECT_PATH / "utils/notify_issues.py"),
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -95,6 +95,7 @@ For more information on how to test this update, please take a look at https://w
         tmpdir,
         package_name,
         distribution,
+        "uploaded",
         upload_repository,
         str(tmpdir / "state_file"),
         str(tmpdir / "stable_state_file"),
@@ -121,7 +122,7 @@ For more information on how to test this update, please take a look at https://w
     )
 
 
-def test_notify_01_template_build_failure(token, github_repository, workdir):
+def test_notify_001_template_build_failure(token, github_repository, workdir):
     tmpdir, env = workdir
     build_log = "dummy"
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
@@ -186,7 +187,146 @@ def test_notify_01_template_build_failure(token, github_repository, workdir):
     )
 
 
-def test_notify_02_iso_build_success_upload(token, github_repository, workdir):
+def test_notify_002_template_build_success_upload_failure(
+    token, github_repository, workdir
+):
+    tmpdir, env = workdir
+    build_log = "dummy"
+    # We need seconds because we create multiple issues successively.
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
+    template_name = "whonix-gateway-17"
+    package_name = f"qubes-template-{template_name}-4.2.0-{timestamp}"
+    distribution = "vm-bookworm"
+
+    #
+    # build
+    #
+
+    status = "building"
+    cmd = [
+        str(PROJECT_PATH / "utils/notify_issues.py"),
+        f"--build-log={build_log}",
+        f"--message-templates-dir={PROJECT_PATH}/templates",
+        f"--github-report-repo-name={github_repository.full_name}",
+        "build",
+        "r4.2",
+        str(tmpdir),
+        package_name,
+        distribution,
+        status,
+    ]
+    subprocess.run(cmd, check=True, env=env)
+
+    issue_title = f"qubes-template-{template_name} 4.2.0-{timestamp} (r4.2)"
+    issue_desc = f"""Template {template_name} 4.2.0-{timestamp} for Qubes OS r4.2, see comments below for details and build status.
+
+If you're release manager, you can issue GPG-inline signed command (depending on template):
+
+* `Upload-template r4.2 {template_name} 4.2.0-{timestamp} templates-itl` (available 5 days from now)
+* `Upload-template r4.2 {template_name} 4.2.0-{timestamp} templates-community` (available 5 days from now)
+
+Above commands will work only if package in testing repository isn't superseded by newer version.
+
+For more information on how to test this update, please take a look at https://www.qubes-os.org/doc/testing/#updates.
+"""
+
+    issue = get_issue(issue_title=issue_title, repository=github_repository)
+
+    # Check if issue has been created
+    assert issue is not None
+
+    # Only one status tag
+    assert len(issue.labels) == 1
+    assert issue.labels[0].name == f"r4.2-{status}"
+
+    # Check description
+    assert issue.body == issue_desc
+
+    #
+    # built
+    #
+    status = "built"
+    cmd = [
+        str(PROJECT_PATH / "utils/notify_issues.py"),
+        f"--build-log={build_log}",
+        f"--message-templates-dir={PROJECT_PATH}/templates",
+        f"--github-report-repo-name={github_repository.full_name}",
+        "build",
+        "r4.2",
+        str(tmpdir),
+        package_name,
+        distribution,
+        status,
+    ]
+    subprocess.run(cmd, check=True, env=env)
+
+    #
+    # upload testing
+    #
+    upload_repository = "templates-community-testing"
+    cmd = [
+        str(PROJECT_PATH / "utils/notify_issues.py"),
+        f"--build-log={build_log}",
+        f"--message-templates-dir={PROJECT_PATH}/templates",
+        f"--github-report-repo-name={github_repository.full_name}",
+        "upload",
+        "r4.2",
+        tmpdir,
+        package_name,
+        distribution,
+        "uploaded",
+        upload_repository,
+        str(tmpdir / "state_file"),
+        str(tmpdir / "stable_state_file"),
+    ]
+    subprocess.run(cmd, check=True, env=env)
+
+    #
+    # upload stable
+    #
+    upload_repository = "templates-community"
+    cmd = [
+        str(PROJECT_PATH / "utils/notify_issues.py"),
+        f"--build-log={build_log}",
+        f"--message-templates-dir={PROJECT_PATH}/templates",
+        f"--github-report-repo-name={github_repository.full_name}",
+        "upload",
+        "r4.2",
+        tmpdir,
+        package_name,
+        distribution,
+        "failed",
+        upload_repository,
+        str(tmpdir / "state_file"),
+        str(tmpdir / "stable_state_file"),
+    ]
+    subprocess.run(cmd, check=True, env=env)
+
+    # Refresh issue object
+    issue.update()
+
+    # Only one status tag
+    assert len(issue.labels) == 1
+    assert issue.labels[0].name == f"r4.2-testing"
+
+    # Check that comment exists
+    comments = list(issue.get_comments())
+    assert len(comments) == 3
+    assert (
+        comments[0].body
+        == f"Template {template_name}-4.2.0-{timestamp} was built ([build log]({build_log}))."
+    )
+    assert (
+        comments[1].body
+        == f"Template {template_name}-4.2.0-{timestamp} was uploaded to {upload_repository}-testing repository."
+    )
+    assert (
+        comments[2].body
+        == f"Template {template_name}-4.2.0-{timestamp} failed to upload to {upload_repository} repository ([build log](dummy))."
+    )
+
+
+def test_notify_020_iso_build_success_upload(token, github_repository, workdir):
     tmpdir, env = workdir
     build_log = "dummy"
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
@@ -254,7 +394,7 @@ For more information on how to test this update, please take a look at https://w
     #
     upload_repository = "iso-testing"
     cmd = [
-        PROJECT_PATH / "utils/notify_issues.py",
+        str(PROJECT_PATH / "utils/notify_issues.py"),
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -263,6 +403,7 @@ For more information on how to test this update, please take a look at https://w
         tmpdir,
         package_name,
         distribution,
+        "uploaded",
         upload_repository,
         str(tmpdir / "state_file"),
         str(tmpdir / "stable_state_file"),
@@ -288,7 +429,7 @@ For more information on how to test this update, please take a look at https://w
     )
 
 
-def test_notify_03_iso_build_failure(token, github_repository, workdir):
+def test_notify_021_iso_build_failure(token, github_repository, workdir):
     tmpdir, env = workdir
     build_log = "dummy"
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
@@ -352,7 +493,7 @@ def test_notify_03_iso_build_failure(token, github_repository, workdir):
     )
 
 
-def test_notify_04_component_build_success_upload(
+def test_notify_040_component_build_success_upload(
     token, github_repository, workdir
 ):
     tmpdir, env = workdir
@@ -472,7 +613,7 @@ For more information on how to test this update, please take a look at https://w
     #
     upload_repository = "current-testing"
     cmd = [
-        PROJECT_PATH / "utils/notify_issues.py",
+        str(PROJECT_PATH / "utils/notify_issues.py"),
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -481,6 +622,7 @@ For more information on how to test this update, please take a look at https://w
         str(tmpdir / package_name),
         package_name,
         distribution,
+        "uploaded",
         upload_repository,
         str(tmpdir / "state_file"),
         str(tmpdir / "stable_state_file"),

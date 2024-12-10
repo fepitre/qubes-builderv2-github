@@ -357,23 +357,6 @@ class AutoAction(BaseAutoAction):
     def notify_build_status(
         self, dist, status, stage="build", log_file=None, additional_info=None
     ):
-        cli_run_kwargs = {
-            "command": stage,
-            "dist": dist,
-            "package_name": self.component.name,
-            "additional_info": additional_info,
-            "build_status": status,
-            "build_log": (
-                self.get_build_log_url(log_file=log_file) if log_file else None
-            ),
-        }
-
-        self.notify_github(
-            cli_run_kwargs=cli_run_kwargs,
-            build_target=f"{self.component.name}:{dist}",
-        )
-
-    def notify_upload_status(self, dist, log_file=None, additional_info=None):
         state_file = (
             self.state_dir
             / f"{self.qubes_release}-{self.component.name}-{dist.package_set}-{dist.name}-{self.repository_publish}"
@@ -386,11 +369,12 @@ class AutoAction(BaseAutoAction):
         )
 
         cli_run_kwargs = {
-            "command": "upload",
+            "command": stage,
             "dist": dist,
             "package_name": self.component.name,
             "repository_type": self.repository_publish,
             "additional_info": additional_info,
+            "build_status": status,
             "build_log": (
                 self.get_build_log_url(log_file=log_file) if log_file else None
             ),
@@ -475,14 +459,16 @@ class AutoAction(BaseAutoAction):
                             stages=["upload"],
                         )
 
-                        self.notify_upload_status(dist=dist)
+                        self.notify_build_status(
+                            dist=dist, status="uploaded", stage=stage
+                        )
 
                         self.built_for_dist.append(dist)
                     except AutoActionError as autobuild_exc:
                         log.error(str(autobuild_exc.args))
                         self.notify_build_status(
-                            dist,
-                            "failed",
+                            dist=dist,
+                            status="failed",
                             stage=stage,
                             log_file=autobuild_exc.log_file,
                             additional_info=autobuild_exc.args,
@@ -533,11 +519,16 @@ class AutoAction(BaseAutoAction):
                         repository_publish=self.repository_publish,
                         distributions=[dist],
                     )
-                    self.notify_upload_status(dist, upload_log_file)
+                    self.notify_build_status(
+                        dist=dist,
+                        status="uploaded",
+                        stage="upload",
+                        log_file=upload_log_file,
+                    )
                 except AutoActionError as autobuild_exc:
                     self.notify_build_status(
-                        dist,
-                        "failed",
+                        dist=dist,
+                        status="failed",
                         stage="upload",
                         log_file=autobuild_exc.log_file,
                     )
@@ -548,8 +539,8 @@ class AutoAction(BaseAutoAction):
                     ) from timeout_exc
                 except Exception as exc:
                     self.notify_build_status(
-                        dist,
-                        "failed",
+                        dist=dist,
+                        status="failed",
                         additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
                     )
                     log.error(str(exc))
@@ -633,23 +624,6 @@ class AutoActionTemplate(BaseAutoAction):
     def notify_build_status(
         self, status, stage="build", log_file=None, additional_info=None
     ):
-
-        cli_run_kwargs = {
-            "command": stage,
-            "dist": self.template.distribution,
-            "package_name": self.package_name,
-            "build_status": status,
-            "additional_info": additional_info,
-            "build_log": (
-                self.get_build_log_url(log_file=log_file) if log_file else None
-            ),
-        }
-
-        self.notify_github(
-            cli_run_kwargs=cli_run_kwargs, build_target=self.template
-        )
-
-    def notify_upload_status(self, log_file=None, additional_info=None):
         state_file = (
             self.state_dir
             / f"{self.qubes_release}-template-vm-{self.template.distribution.name}-{self.repository_publish}"
@@ -662,10 +636,11 @@ class AutoActionTemplate(BaseAutoAction):
         )
 
         cli_run_kwargs = {
-            "command": "upload",
+            "command": stage,
             "dist": self.template.distribution,
             "package_name": self.package_name,
             "repository_type": self.repository_publish,
+            "build_status": status,
             "additional_info": additional_info,
             "build_log": (
                 self.get_build_log_url(log_file=log_file) if log_file else None
@@ -675,8 +650,7 @@ class AutoActionTemplate(BaseAutoAction):
         }
 
         self.notify_github(
-            cli_run_kwargs=cli_run_kwargs,
-            build_target=self.template,
+            cli_run_kwargs=cli_run_kwargs, build_target=self.template
         )
 
     def build(self):
@@ -727,11 +701,14 @@ class AutoActionTemplate(BaseAutoAction):
                     stages=["upload"],
                 )
 
-                self.notify_upload_status(build_log_file)
-
+                self.notify_build_status(
+                    status="uploaded", stage=stage, log_file=build_log_file
+                )
             except AutoActionError as autobuild_exc:
                 self.notify_build_status(
-                    "failed", stage=stage, log_file=autobuild_exc.log_file
+                    status="failed",
+                    stage=stage,
+                    log_file=autobuild_exc.log_file,
                 )
                 pass
             except TimeoutError as timeout_exc:
@@ -740,7 +717,7 @@ class AutoActionTemplate(BaseAutoAction):
                 ) from timeout_exc
             except Exception as exc:
                 self.notify_build_status(
-                    "failed",
+                    status="failed",
                     additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
                 )
                 log.error(str(exc))
@@ -774,10 +751,14 @@ class AutoActionTemplate(BaseAutoAction):
                     self.publish_and_upload,
                     repository_publish=self.repository_publish,
                 )
-                self.notify_upload_status(upload_log_file)
+                self.notify_build_status(
+                    status="uploaded", stage="upload", log_file=upload_log_file
+                )
             except AutoActionError as autobuild_exc:
                 self.notify_build_status(
-                    "failed", stage="upload", log_file=autobuild_exc.log_file
+                    status="failed",
+                    stage="upload",
+                    log_file=autobuild_exc.log_file,
                 )
                 pass
             except TimeoutError as timeout_exc:
@@ -875,23 +856,6 @@ class AutoActionISO(BaseAutoAction):
     def notify_build_status(
         self, status, stage="build", log_file=None, additional_info=None
     ):
-        cli_run_kwargs = {
-            "command": stage,
-            "dist": self.dist,
-            "package_name": self.package_name,
-            "additional_info": additional_info,
-            "build_status": status,
-            "build_log": (
-                self.get_build_log_url(log_file=log_file) if log_file else None
-            ),
-        }
-
-        self.notify_github(
-            cli_run_kwargs=cli_run_kwargs,
-            build_target=self.package_name,
-        )
-
-    def notify_upload_status(self, log_file=None, additional_info=None):
         state_file = (
             self.state_dir
             / f"{self.qubes_release}-iso-{self.dist.name}"
@@ -904,11 +868,12 @@ class AutoActionISO(BaseAutoAction):
         )
 
         cli_run_kwargs = {
-            "command": "upload",
+            "command": stage,
             "dist": self.dist,
             "package_name": self.package_name,
             "repository_type": self.repository_publish,
             "additional_info": additional_info,
+            "build_status": status,
             "build_log": (
                 self.get_build_log_url(log_file=log_file) if log_file else None
             ),
@@ -1006,11 +971,12 @@ class AutoActionISO(BaseAutoAction):
 
                 additional_info = self.trigger_openqa()
 
-                self.notify_upload_status(
-                    build_log_file,
+                self.notify_build_status(
+                    status="uploaded",
+                    stage=stage,
+                    log_file=build_log_file,
                     additional_info=additional_info,
                 )
-
             except AutoActionError as autobuild_exc:
                 self.notify_build_status(
                     "failed", stage=stage, log_file=autobuild_exc.log_file

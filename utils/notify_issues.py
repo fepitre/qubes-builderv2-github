@@ -85,7 +85,8 @@ class NotifyIssueCli:
             prefix_label = f"{self.release_name}-{dist_label}"
 
         add_labels = []
-        if command == "upload":
+        delete_labels = []
+        if command == "upload" and build_status == "uploaded":
             delete_labels = [
                 f"{prefix_label}-failed",
                 f"{prefix_label}-building",
@@ -116,7 +117,7 @@ class NotifyIssueCli:
             else:
                 log.warning(f"Ignoring {repository_type}")
                 return [], []
-        else:
+        elif command == "build":
             if build_status == "failed":
                 add_labels = [f"{prefix_label}-failed"]
                 delete_labels = [f"{prefix_label}-building"]
@@ -490,9 +491,9 @@ class NotifyIssueCli:
         command,
         dist,
         package_name,
+        build_status,
         repository_type=None,
         repository_url=None,
-        build_status=None,
         state_file=None,
         stable_state_file=None,
         build_log=None,
@@ -517,8 +518,7 @@ class NotifyIssueCli:
             package_name=package_name,
         )
 
-        if command == "upload":
-            build_status = "uploaded"
+        if command == "upload" and build_status == "uploaded":
             if not state_file.exists():
                 log.warning(
                     f"{str(state_file)} does not exist, initializing with the current state"
@@ -584,11 +584,15 @@ class NotifyIssueCli:
                 report_message = (
                     f"{report_message.rstrip('.')} ({additional_info})."
                 )
-        elif build_status == "failed":
-            if build_log:
-                report_message = f"{base_message} failed to build ([build log]({build_log}))."
+        elif build_status == "failed" and command in ["build", "upload"]:
+            if command == "build":
+                suffix_message = "build"
             else:
-                report_message = f"{base_message} failed to build."
+                suffix_message = f"upload to {upload_suffix_message}"
+            if build_log:
+                report_message = f"{base_message} failed to {suffix_message} ([build log]({build_log}))."
+            else:
+                report_message = f"{base_message} failed to {suffix_message}."
             if additional_info:
                 report_message = (
                     f"{report_message.rstrip('.')} ({additional_info})."
@@ -676,6 +680,11 @@ def add_required_args_to_parser(parser):
         help="Qubes OS Distribution name (e.g. host-fc32)",
         type=QubesDistribution,
     )
+    parser.add_argument(
+        "status",
+        help="Build status",
+        choices=["failed", "building", "built", "uploaded"],
+    )
 
 
 def parse_args():
@@ -748,11 +757,6 @@ def parse_args():
     build_parser.set_defaults(command="build")
     # Common args
     add_required_args_to_parser(build_parser)
-    build_parser.add_argument(
-        "status",
-        help="Build status",
-        choices=["failed", "building", "built", "uploaded"],
-    )
 
     return parser.parse_args()
 
@@ -802,8 +806,8 @@ def main():
             command=args.command,
             dist=args.distribution,
             package_name=args.package_name,
+            build_status=args.status,
             additional_info=args.additional_info,
-            build_status=getattr(args, "status", None),
             build_log=getattr(args, "build_log", None),
             repository_type=getattr(args, "repo_type", None),
             repository_url=getattr(args, "repository_url", None),

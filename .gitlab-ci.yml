@@ -53,7 +53,7 @@ mypy:
     paths:
       - results
   before_script:
-    - sudo dnf install -y python3-pathspec python3-pytest sequoia-sq sequoia-sqv sequoia-chameleon-gnupg python3-github python3-psutil
+    - sudo dnf install -y python3-pathspec python3-pytest sequoia-sq sequoia-sqv sequoia-chameleon-gnupg python3-github python3-psutil python3-pytest-asyncio
   after_script:
     - mkdir $CI_PROJECT_DIR/results
     - cp -r ~/pytest-of-$USER/pytest-current/github-current/*.log $CI_PROJECT_DIR/results || true

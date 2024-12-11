@@ -1,9 +1,12 @@
+import asyncio
 import datetime
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 import dnf
+import pytest
 import yaml
 
 from conftest import set_conf_options, get_issue
@@ -583,7 +586,8 @@ def test_action_template_upload(token, github_repository, workdir):
     }
 
 
-def test_action_iso_build(token, github_repository, workdir):
+@pytest.mark.asyncio
+async def test_action_iso_build(token, github_repository, workdir):
     tmpdir, env = workdir
     set_conf_options(
         tmpdir / "builder.yml",
@@ -611,8 +615,27 @@ def test_action_iso_build(token, github_repository, workdir):
         f"4.2.{timestamp}",
         timestamp,
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
-    _build_iso_check(tmpdir, timestamp)
+
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        env=env,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+    # Give some time for creating issue
+    time.sleep(10)
+    labels, _ = get_labels_and_comments(
+        f"iso 4.2.{timestamp} (r4.2)",
+        github_repository,
+    )
+
+    # Check that labels exist
+    assert set(labels) == {"r4.2-building"}
+
+    await process.communicate()
+
+    assert process.returncode == 0
 
     labels, comments = get_labels_and_comments(
         f"iso 4.2.{timestamp} (r4.2)",

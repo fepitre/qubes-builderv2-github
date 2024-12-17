@@ -91,7 +91,7 @@ class NotifyIssueCli:
                 f"{prefix_label}-failed",
                 f"{prefix_label}-building",
             ]
-            if repository_type == "current":
+            if repository_type in ("current", "stable"):
                 delete_labels += [
                     f"{prefix_label}-cur-test",
                     f"{prefix_label}-sec-test",

@@ -322,13 +322,12 @@ class AutoAction(BaseAutoAction):
         self.built_for_dist = []
 
     def run_stages(self, dist, stages):
-        for stage in stages:
-            _component_stage(
-                stage_name=stage,
-                config=self.config,
-                components=[self.component],
-                distributions=[dist],
-            )
+        _component_stage(
+            stages=stages,
+            config=self.config,
+            components=[self.component],
+            distributions=[dist],
+        )
 
     def publish_and_upload(self, repository_publish: str, distributions: List):
         _publish(
@@ -407,7 +406,7 @@ class AutoAction(BaseAutoAction):
             config=self.config,
             components=[self.component],
             distributions=self.distributions,
-            stage_name="fetch",
+            stages=["fetch"],
         )
         for dist in self.distributions:
             release_status = _check_release_status_for_component(
@@ -587,13 +586,12 @@ class AutoActionTemplate(BaseAutoAction):
         self.timeout = self.templates[0].timeout
 
     def run_stages(self, stages):
-        for stage in stages:
-            _template_stage(
-                stage_name=stage,
-                config=self.config,
-                templates=self.templates,
-                template_timestamp=self.template_timestamp,
-            )
+        _template_stage(
+            stages=stages,
+            config=self.config,
+            templates=self.templates,
+            template_timestamp=self.template_timestamp,
+        )
 
     def publish_and_upload(self, repository_publish: str):
         _publish(
@@ -941,7 +939,7 @@ class AutoActionISO(BaseAutoAction):
                     config=self.config,
                     components=self.config.get_components(["qubes-release"]),
                     distributions=[],
-                    stage_name="fetch",
+                    stages=["fetch"],
                 )
 
                 build_log_file = self.make_with_log(

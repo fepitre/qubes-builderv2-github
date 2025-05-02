@@ -66,7 +66,8 @@ read_stdin_command_and_verify_signature() {
         exit 1
     fi
 
-    if ! fpr=$(sqv --keyring "$local_keyring_path" -- \
+    future=$(date --iso-8601=seconds -d tomorrow)
+    if ! fpr=$(sqv --not-after "$future" --keyring "$local_keyring_path" -- \
             "$tmpdir/untrusted_command.sig" \
 	    "$tmpdir/untrusted_command"); then
         echo "Invalid signature" >&2

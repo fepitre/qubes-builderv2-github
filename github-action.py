@@ -675,6 +675,14 @@ class AutoActionTemplate(BaseAutoAction):
                     status="building",
                 )
 
+                self.make_with_log(
+                    _component_stage,
+                    config=self.config,
+                    components=self.config.get_components(),
+                    distributions=[],
+                    stages=["fetch"],
+                )
+
                 build_log_file = self.make_with_log(
                     self.run_stages,
                     stages=["prep", "build", "sign", "publish"],

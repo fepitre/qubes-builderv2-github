@@ -66,7 +66,7 @@ class NotifyIssueCli:
         github_report_repo_name: str,
         min_age_days: int,
     ):
-        self.token = token
+        self.token = token or None
         self.release_name = release_name
         self.source_dir = source_dir
         self.message_templates_dir = message_templates_dir

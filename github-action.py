@@ -36,9 +36,12 @@ import subprocess
 import sys
 import traceback
 from abc import abstractmethod, ABC
+from collections import deque
 from contextlib import contextmanager
+from logging import StreamHandler, Handler, DEBUG, Logger
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Any
+from urllib.parse import urljoin
 
 import yaml
 
@@ -58,7 +61,7 @@ from qubesbuilder.cli.cli_repository import (
 )
 from qubesbuilder.cli.cli_installer import _installer_stage
 from qubesbuilder.config import Config
-from qubesbuilder.exc import ConfigError
+from qubesbuilder.exc import ConfigError, QubesBuilderError
 from qubesbuilder.log import (
     init_logger,
     QubesBuilderLogger,
@@ -69,8 +72,6 @@ from qubesbuilder.component import ComponentError
 from qubesbuilder.plugins import PluginError
 from qubesbuilder.pluginmanager import PluginManager
 
-from urllib.parse import urljoin
-
 from utils.notify_issues import NotifyIssueCli, NotifyIssueError
 
 PROJECT_PATH = Path(__file__).resolve().parent
@@ -79,20 +80,69 @@ init_logger(verbose=True)
 log = QubesBuilderLogger
 
 
+def format_additional_info(
+    base: Any,
+    tail: Optional[str] = None,
+    on_error_lines_to_report: int = 30,
+    *,
+    max_tail_chars: int = 3500,
+) -> Optional[str]:
+    paragraphs: list[str] = []
+
+    # Base message
+    base_txt = ""
+    if base is not None:
+        if isinstance(base, tuple):
+            base_txt = " ".join(str(x) for x in base if x is not None).strip()
+        else:
+            base_txt = str(base).strip()
+
+    if base_txt:
+        paragraphs.append(f"**Additional info:** {base_txt}")
+
+    # Tail block
+    if tail:
+        t = tail.strip("\n")
+        if max_tail_chars and len(t) > max_tail_chars:
+            t = "…\n" + t[-max_tail_chars:]
+
+        paragraphs.append(
+            "\n".join(
+                [
+                    f"**Log tail (last ~{on_error_lines_to_report} lines):**",
+                    "<details>",
+                    "",
+                    "```text",
+                    t,
+                    "```",
+                    "</details>",
+                ]
+            )
+        )
+
+    return "\n\n".join(paragraphs) if paragraphs else None
+
+
 def get_log_file_from_qubesbuilder_buildlog(stdout, logger=None):
-    lines = stdout.splitlines()
-    if not stdout or not lines:
+    if not stdout:
         if logger:
             logger.error(
                 "No output from qubesbuilder.BuildLog. Any policy RPC or LogVM issue?"
             )
-    if re.match(r"^.*[\S\w.-]+/log_[\S\w.-]+$", lines[0]):
-        return lines[0]
-    else:
-        if logger:
-            logger.error(
-                "Cannot parse log file provided by qubesbuilder.BuildLog RPC."
-            )
+        return None
+
+    for raw in stdout.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if re.fullmatch(r".*[\S\w.-]+/log_[\S\w.-]+", line):
+            return line
+
+    if logger:
+        logger.error(
+            "Cannot parse log file provided by qubesbuilder.BuildLog RPC."
+        )
+    return None
 
 
 def raise_timeout(signum, frame):
@@ -100,21 +150,97 @@ def raise_timeout(signum, frame):
 
 
 @contextmanager
-def timeout(time):
+def timeout(seconds: int):
+    old_handler = signal.getsignal(signal.SIGALRM)
     signal.signal(signal.SIGALRM, raise_timeout)
-    signal.alarm(time)
+    signal.alarm(int(seconds))
     try:
         yield
-    except TimeoutError:
-        pass
     finally:
-        signal.signal(signal.SIGALRM, signal.SIG_IGN)
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
 
 
-class AutoActionError(Exception):
-    def __init__(self, *args, log_file=None):
+class SafeWrapper(Handler):
+    """
+    Wrap an existing handler to BrokenPipeError. On first BrokenPipe,
+    disables itself and optionally removes itself from logger.
+    """
+
+    def __init__(self, inner: Handler, parent_logger: Logger | None = None):
+        super().__init__(level=inner.level)
+        self.inner = inner
+        self.parent_logger = parent_logger
+        self._disabled = False
+
+        # Keep existing formatting
+        try:
+            self.setFormatter(inner.formatter)
+        except Exception:
+            pass
+
+    def emit(self, record):
+        if self._disabled:
+            return
+        try:
+            self.inner.emit(record)
+            try:
+                self.inner.flush()
+            except Exception:
+                pass
+        except BrokenPipeError:
+            self._disabled = True
+            # detach so future logging doesn't keep trying
+            if self.parent_logger is not None:
+                try:
+                    self.parent_logger.removeHandler(self)
+                except Exception:
+                    pass
+            try:
+                self.inner.close()
+            except Exception:
+                pass
+
+    def flush(self):
+        try:
+            self.inner.flush()
+        except Exception:
+            pass
+
+    def close(self):
+        try:
+            self.inner.close()
+        finally:
+            super().close()
+
+
+class TailBufferHandler(Handler):
+    def __init__(self, capacity=30, level=DEBUG, formatter=None):
+        super().__init__(level)
+        self.capacity = capacity
+        self.buffer = deque(maxlen=capacity)  # type: ignore
+        if formatter is not None:
+            self.setFormatter(formatter)
+
+    def emit(self, record):
+        try:
+            self.buffer.append(self.format(record))
+        except Exception:
+            self.buffer.append(record.getMessage())
+
+    def text(self, header=None):
+        if not self.buffer:
+            return None
+        if not header:
+            header = f"Last {self.capacity} log lines"
+        return header + ":\n" + "\n".join(self.buffer)
+
+
+class AutoActionError(QubesBuilderError):
+    def __init__(self, *args, log_file=None, tail=None):
         self.args = args
         self.log_file = log_file
+        self.tail = tail
 
 
 class AutoActionTimeout(Exception):
@@ -146,6 +272,7 @@ class BaseAutoAction(ABC):
         self.commit_sha = commit_sha
         self.repository_publish = repository_publish
         self.dry_run = dry_run
+        self.on_error_lines_to_report = 30
 
         if not self.builder_dir.exists():
             raise AutoActionError(
@@ -165,8 +292,8 @@ class BaseAutoAction(ABC):
         self.env = os.environ.copy()
         self.env.update(
             {
-                "PYTHONPATH": builder_dir,
-                "GITHUB_API_KEY": self.api_key,
+                "PYTHONPATH": str(builder_dir),
+                "GITHUB_API_KEY": self.api_key or "",
                 "GITHUB_BUILD_REPORT_REPO": self.build_report_repo,
             }
         )
@@ -199,27 +326,48 @@ class BaseAutoAction(ABC):
             log.debug(f"[DRY-RUN] func: {func.__qualname__}")
             log.debug(f"[DRY-RUN] args: {args}")
             log.debug(f"[DRY-RUN] kwargs: {kwargs}")
-            return
+            return None
         if self.local_log_file:
             return self.make_with_log_local(func, *args, **kwargs)
-        else:
-            return self.make_with_log_qrexec(func, *args, **kwargs)
+        return self.make_with_log_qrexec(func, *args, **kwargs)
 
     def make_with_log_local(self, func, *args, **kwargs):
         log_fh = create_file_handler(self.local_log_file)
         log.addHandler(log_fh)
         log.debug("> starting build with log")
         self.display_head_info(args)
+
         try:
             func(*args, **kwargs)
             log.debug("> done")
-        except PluginError as e:
-            raise AutoActionError(e.args, log_file=self.local_log_file) from e
+        except Exception as caught_exc:
+            try:
+                data = self.local_log_file.read_text()
+            except Exception as e:
+                return f"> failed to read log tail: {e}]"
+
+            all_lines = data.splitlines()
+            tail = "\n".join(all_lines[-self.on_error_lines_to_report :])
+
+            raise AutoActionError(
+                f"{caught_exc.__class__.__name__}: {caught_exc}",
+                log_file=self.local_log_file,
+                tail=f"Last {self.on_error_lines_to_report} log lines:\n{tail}",
+            ) from caught_exc
+
         finally:
             log.removeHandler(log_fh)
+            try:
+                log_fh.flush()
+            finally:
+                log_fh.close()
+
         return self.local_log_file
 
     def make_with_log_qrexec(self, func, *args, **kwargs):
+        log_file = None
+        caught_exc = None
+
         with subprocess.Popen(
             ["qrexec-client-vm", "dom0", "qubesbuilder.BuildLog"],
             text=True,
@@ -229,30 +377,60 @@ class BaseAutoAction(ABC):
         ) as p:
             assert p.stdin is not None
             assert p.stdout is not None
-            qrexec_stream = create_console_handler(True, stream=p.stdin)
+            assert p.stderr is not None
 
-            log.addHandler(qrexec_stream)
-            log.debug("> starting build with log")
-            self.display_head_info(args)
+            raw_qrexec = create_console_handler(True, stream=p.stdin)
+            qrexec = SafeWrapper(raw_qrexec, parent_logger=log)
+            tail = TailBufferHandler(
+                capacity=self.on_error_lines_to_report,
+                level=DEBUG,
+                formatter=raw_qrexec.formatter,
+            )
+
+            # Attach handlers (attach wrapper, not raw handler)
+            log.addHandler(qrexec)
+            log.addHandler(tail)
+
             try:
-                func(*args, **kwargs)
-                log.debug("> done")
-            except PluginError as e:
-                p.stdin.close()
-                p.wait()
-                log_file = get_log_file_from_qubesbuilder_buildlog(
-                    p.stdout.read(), log
-                )
-                raise AutoActionError(e.args, log_file=log_file) from e
-            else:
-                p.stdin.close()
-                p.wait()
-                log_file = get_log_file_from_qubesbuilder_buildlog(
-                    p.stdout.read(), log
-                )
+                log.debug("> starting build with log")
+                self.display_head_info(args)
+                try:
+                    func(*args, **kwargs)
+                    log.debug("> done")
+                except Exception as e:
+                    caught_exc = e
             finally:
-                log.removeHandler(qrexec_stream)
-            return log_file
+                try:
+                    # Remove tail first so teardown logs don't overwrite the tail
+                    log.removeHandler(tail)
+                    # Remove wrapper before closing stdin
+                    log.removeHandler(qrexec)
+                    # Close wrapper
+                    qrexec.flush()
+                    qrexec.close()
+                    # Signal EOF to RPC
+                    p.stdin.close()
+                    # Drain stdout+stderr to avoid deadlocks and capture log path
+                    out, err = p.communicate()
+                except Exception as e:
+                    log.error(str(e))
+                    out, err = "", ""
+
+                # FIXME: no output in pytest, maybe the mocking process?
+                log_file = get_log_file_from_qubesbuilder_buildlog(out, log)
+
+                # If RPC did not return a path, add stderr info into tail for reporting
+                if not log_file and err:
+                    tail.buffer.append(f"> error: {err.strip()[:400]}")
+
+        if caught_exc:
+            raise AutoActionError(
+                f"{caught_exc.__class__.__name__}: {caught_exc}",
+                log_file=log_file,  # may be None if RPC died
+                tail=tail.text(),
+            ) from caught_exc
+
+        return log_file
 
     @abstractmethod
     def build(self):
@@ -314,11 +492,10 @@ class AutoAction(BaseAutoAction):
         ).get("components", None)
         if not self.repository_publish:
             raise AutoActionError(
-                f"No repository defined for component publication."
+                "No repository defined for component publication."
             )
 
         self.timeout = self.component.timeout
-
         self.built_for_dist = []
 
     def run_stages(self, dist, stages):
@@ -357,12 +534,10 @@ class AutoAction(BaseAutoAction):
         state_file = (
             self.state_dir
             / f"{self.qubes_release}-{self.component.name}-{dist.package_set}-{dist.name}-{self.repository_publish}"
-            # type: ignore
         )
         stable_state_file = (
             self.state_dir
             / f"{self.qubes_release}-{self.component.name}-{dist.package_set}-{dist.name}-current"
-            # type: ignore
         )
 
         cli_run_kwargs = {
@@ -427,10 +602,7 @@ class AutoAction(BaseAutoAction):
                 with timeout(self.timeout):
                     stage = "build"
                     try:
-                        self.notify_build_status(
-                            dist=dist,
-                            status="building",
-                        )
+                        self.notify_build_status(dist=dist, status="building")
 
                         build_log_file = self.make_with_log(
                             self.run_stages,
@@ -449,9 +621,7 @@ class AutoAction(BaseAutoAction):
 
                         stage = "upload"
                         self.make_with_log(
-                            self.run_stages,
-                            dist=dist,
-                            stages=["upload"],
+                            self.run_stages, dist=dist, stages=["upload"]
                         )
 
                         self.notify_build_status(
@@ -460,27 +630,35 @@ class AutoAction(BaseAutoAction):
 
                         self.built_for_dist.append(dist)
                     except AutoActionError as autobuild_exc:
-                        log.error(str(autobuild_exc.args))
+                        base_msg = (
+                            autobuild_exc.args[0]
+                            if autobuild_exc.args
+                            else "Build failed"
+                        )
+                        extra = format_additional_info(
+                            base=base_msg,
+                            tail=getattr(autobuild_exc, "tail", None),
+                            on_error_lines_to_report=self.on_error_lines_to_report,
+                        )
                         self.notify_build_status(
                             dist=dist,
                             status="failed",
                             stage=stage,
                             log_file=autobuild_exc.log_file,
-                            additional_info=autobuild_exc.args,
+                            additional_info=extra,
                         )
-                        pass
+
                     except TimeoutError as timeout_exc:
                         raise AutoActionTimeout(
                             "Timeout reached for build!"
                         ) from timeout_exc
                     except Exception as exc:
+                        log.exception("Internal error during build")
                         self.notify_build_status(
                             dist,
                             "failed",
-                            additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
+                            additional_info=f"Internal error: '{str(exc.__class__.__name__)}: {exc}'",
                         )
-                        log.error(str(exc))
-                        pass
 
         if not self.built_for_dist:
             log.warning(
@@ -526,19 +704,17 @@ class AutoAction(BaseAutoAction):
                         stage="upload",
                         log_file=autobuild_exc.log_file,
                     )
-                    pass
                 except TimeoutError as timeout_exc:
                     raise AutoActionTimeout(
                         "Timeout reached for upload!"
                     ) from timeout_exc
                 except Exception as exc:
+                    log.exception("Internal error during upload")
                     self.notify_build_status(
                         dist=dist,
                         status="failed",
-                        additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
+                        additional_info=f"Internal error: '{str(exc.__class__.__name__)}: {exc}'",
                     )
-                    log.error(str(exc))
-                    pass
 
 
 class AutoActionTemplate(BaseAutoAction):
@@ -580,7 +756,7 @@ class AutoActionTemplate(BaseAutoAction):
         ).get("templates", None)
         if not self.repository_publish:
             raise AutoActionError(
-                f"No repository defined for template publication."
+                "No repository defined for template publication."
             )
 
         self.timeout = self.templates[0].timeout
@@ -617,12 +793,10 @@ class AutoActionTemplate(BaseAutoAction):
         state_file = (
             self.state_dir
             / f"{self.qubes_release}-template-vm-{self.template.distribution.name}-{self.repository_publish}"
-            # type: ignore
         )
         stable_state_file = (
             self.state_dir
             / f"{self.qubes_release}-template-vm-{self.template.distribution.name}-current"
-            # type: ignore
         )
 
         cli_run_kwargs = {
@@ -671,9 +845,7 @@ class AutoActionTemplate(BaseAutoAction):
         with timeout(self.timeout):
             stage = "build"
             try:
-                self.notify_build_status(
-                    status="building",
-                )
+                self.notify_build_status(status="building")
 
                 self.make_with_log(
                     _component_stage,
@@ -689,16 +861,11 @@ class AutoActionTemplate(BaseAutoAction):
                 )
 
                 self.notify_build_status(
-                    status="built",
-                    stage=stage,
-                    log_file=build_log_file,
+                    status="built", stage=stage, log_file=build_log_file
                 )
 
                 stage = "upload"
-                self.make_with_log(
-                    self.run_stages,
-                    stages=["upload"],
-                )
+                self.make_with_log(self.run_stages, stages=["upload"])
 
                 self.notify_build_status(
                     status="uploaded", stage=stage, log_file=build_log_file
@@ -709,18 +876,16 @@ class AutoActionTemplate(BaseAutoAction):
                     stage=stage,
                     log_file=autobuild_exc.log_file,
                 )
-                pass
             except TimeoutError as timeout_exc:
                 raise AutoActionTimeout(
                     "Timeout reached for build!"
                 ) from timeout_exc
             except Exception as exc:
+                log.exception("Internal error during template build")
                 self.notify_build_status(
                     status="failed",
-                    additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
+                    additional_info=f"Internal error: '{str(exc.__class__.__name__)}: {exc}'",
                 )
-                log.error(str(exc))
-                pass
 
     def upload(self):
         upload_artifact_file = (
@@ -760,18 +925,16 @@ class AutoActionTemplate(BaseAutoAction):
                     stage="upload",
                     log_file=autobuild_exc.log_file,
                 )
-                pass
             except TimeoutError as timeout_exc:
                 raise AutoActionTimeout(
                     "Timeout reached for upload!"
                 ) from timeout_exc
             except Exception as exc:
+                log.exception("Internal error during template upload")
                 self.notify_build_status(
                     "failed",
-                    additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
+                    additional_info=f"Internal error: '{str(exc.__class__.__name__)}: {exc}'",
                 )
-                log.error(str(exc))
-                pass
 
 
 class AutoActionISO(BaseAutoAction):
@@ -824,7 +987,7 @@ class AutoActionISO(BaseAutoAction):
         ]
         if len(host_distributions) != 1:
             raise AutoActionError(
-                f"None or more than one host distribution in builder configuration file!"
+                "None or more than one host distribution in builder configuration file!"
             )
         self.iso_version = self.commit_sha
         self.iso_base_url = self.config.get("github", {}).get(
@@ -835,7 +998,7 @@ class AutoActionISO(BaseAutoAction):
             "iso", None
         ):
             raise AutoActionError(
-                f"No remote host configured in builder configuration file!"
+                "No remote host configured in builder configuration file!"
             )
 
         self.dist = host_distributions[0]
@@ -856,14 +1019,11 @@ class AutoActionISO(BaseAutoAction):
         self, status, stage="build", log_file=None, additional_info=None
     ):
         state_file = (
-            self.state_dir
-            / f"{self.qubes_release}-iso-{self.dist.name}"
-            # type: ignore
+            self.state_dir / f"{self.qubes_release}-iso-{self.dist.name}"
         )
         stable_state_file = (
             self.state_dir
             / f"{self.qubes_release}-iso-{self.dist.name}-current"
-            # type: ignore
         )
 
         cli_run_kwargs = {
@@ -886,8 +1046,7 @@ class AutoActionISO(BaseAutoAction):
             )
 
         self.notify_github(
-            cli_run_kwargs=cli_run_kwargs,
-            build_target=self.package_name,
+            cli_run_kwargs=cli_run_kwargs, build_target=self.package_name
         )
 
     def trigger_openqa(self):
@@ -918,7 +1077,10 @@ class AutoActionISO(BaseAutoAction):
                 "ISO_URL": f"{url}/Qubes-{self.iso_version}-x86_64.iso",
             }
             log.debug(f"openQA request: {params}")
-            job_url = f"https://openqa.qubes-os.org/tests/overview?distri=qubesos&version={version}&build={self.iso_version}&groupid=1"
+            job_url = (
+                "https://openqa.qubes-os.org/tests/overview"
+                f"?distri=qubesos&version={version}&build={self.iso_version}&groupid=1"
+            )
             log.debug(f"openQA job url: {job_url}")
             if self.dry_run:
                 return
@@ -938,9 +1100,7 @@ class AutoActionISO(BaseAutoAction):
         with timeout(self.timeout):
             stage = "build"
             try:
-                self.notify_build_status(
-                    "building",
-                )
+                self.notify_build_status("building")
 
                 self.make_with_log(
                     _component_stage,
@@ -956,16 +1116,11 @@ class AutoActionISO(BaseAutoAction):
                 )
 
                 self.notify_build_status(
-                    status="built",
-                    stage=stage,
-                    log_file=build_log_file,
+                    status="built", stage=stage, log_file=build_log_file
                 )
 
                 stage = "upload"
-                self.make_with_log(
-                    self.run_stages,
-                    stages=["upload"],
-                )
+                self.make_with_log(self.run_stages, stages=["upload"])
 
                 additional_info = self.trigger_openqa()
 
@@ -975,22 +1130,20 @@ class AutoActionISO(BaseAutoAction):
                     log_file=build_log_file,
                     additional_info=additional_info,
                 )
-            except AutoActionError as autobuild_exc:
+            except (QubesBuilderError, AutoActionError) as autobuild_exc:
                 self.notify_build_status(
                     "failed", stage=stage, log_file=autobuild_exc.log_file
                 )
-                pass
             except TimeoutError as timeout_exc:
                 raise AutoActionTimeout(
                     "Timeout reached for build!"
                 ) from timeout_exc
             except Exception as exc:
+                log.exception("Internal error during ISO build")
                 self.notify_build_status(
                     "failed",
-                    additional_info=f"Internal error: '{str(exc.__class__.__name__)}'",
+                    additional_info=f"Internal error: '{str(exc.__class__.__name__)}: {exc}'",
                 )
-                log.error(str(exc))
-                pass
 
 
 def main():
@@ -1004,8 +1157,7 @@ def main():
         help="Don't check signer fingerprint.",
     )
     signer.add_argument(
-        "--signer-fpr",
-        help="Signer GitHub command fingerprint.",
+        "--signer-fpr", help="Signer GitHub command fingerprint."
     )
     parser.add_argument("--dry-run", action="store_true", default=False)
     parser.add_argument(
@@ -1061,11 +1213,7 @@ def main():
     build_iso_parser.add_argument("builder_conf")
     build_iso_parser.add_argument("iso_version")
     build_iso_parser.add_argument("iso_timestamp")
-    build_iso_parser.add_argument(
-        "--final",
-        action="store_true",
-        default=False,
-    )
+    build_iso_parser.add_argument("--final", action="store_true", default=False)
 
     args = parser.parse_args()
 
@@ -1095,9 +1243,7 @@ def main():
         local_log_file = None
 
     cli_list: List[BaseAutoAction] = []
-
     config = Config(args.builder_conf)
-
     dry_run = args.dry_run or config.get("github", {}).get("dry-run", False)
 
     if args.command in ("build-component", "upload-component"):
@@ -1196,7 +1342,6 @@ def main():
             )
         )
     elif args.command == "build-iso":
-        # maintainers checks
         if not args.no_signer_github_command_check:
             allowed_to_trigger_build_iso = (
                 config.get("github", {})
@@ -1205,7 +1350,7 @@ def main():
                 .get("iso", False)
             )
             if not allowed_to_trigger_build_iso:
-                log.info(f"Trigger build for ISO is not allowed.")
+                log.info("Trigger build for ISO is not allowed.")
                 return
         cli_list.append(
             AutoActionISO(

@@ -1,11 +1,23 @@
 import datetime
+import importlib.util
 import subprocess
 from pathlib import Path
 
 from conftest import get_issue
+from qubesbuilder.distribution import QubesDistribution
+from utils.notify_issues import NotifyIssueCli
 
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
+
+github_action_spec = importlib.util.spec_from_file_location(
+    "github_action", str(PROJECT_PATH / "github-action.py")
+)
+github_action = importlib.util.module_from_spec(github_action_spec)
+github_action_spec.loader.exec_module(github_action)
+
+AutoActionError = github_action.AutoActionError
+format_additional_info = github_action.format_additional_info
 
 
 def test_notify_000_template_build_success_upload(
@@ -647,3 +659,68 @@ For more information on how to test this update, please take a look at https://w
         comments[1].body
         == f"Package for vm-fc42 was uploaded to current-testing repository."
     )
+
+
+def test_notify_100_includes_tail(token, github_repository, workdir):
+    tmpdir, env = workdir
+
+    distribution = QubesDistribution("host-fc41")
+    build_log = "dummy"
+    package_name = "core-admin-linux"
+    version = "4.2.6"
+
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(tmpdir),
+            "clone",
+            "-b",
+            f"v{version}",
+            f"https://github.com/QubesOS/qubes-{package_name}",
+            package_name,
+        ],
+        check=True,
+    )
+
+    exc = ValueError("Invalid something or broken stuff")
+    tail = "\ntraceback: boom\n           bim bada boum"
+    additional_info = format_additional_info(base=exc.args, tail=tail)
+
+    cli = NotifyIssueCli(
+        token=token,
+        release_name="r4.3",
+        source_dir=Path(tmpdir) / package_name,
+        github_report_repo_name=github_repository.full_name,
+        message_templates_dir=PROJECT_PATH / "templates",
+        min_age_days=0,
+    )
+
+    cli.run(
+        command="build",
+        dist=distribution,
+        package_name=package_name,
+        repository_type="current-testing",
+        build_status="building",
+    )
+
+    cli.run(
+        command="build",
+        dist=distribution,
+        package_name=package_name,
+        repository_type="current-testing",
+        build_status="failed",
+        build_log=build_log,
+        additional_info=additional_info,
+    )
+
+    issue_title = f"{package_name} v{version} (r4.3)"
+    issue = get_issue(issue_title=issue_title, repository=github_repository)
+
+    comments = list(issue.get_comments())
+    assert len(comments) == 1
+
+    body = comments[0].body
+    assert "Log tail (last ~30 lines)" in body
+    assert "traceback: boom" in body
+    assert "bim bada boum" in body

@@ -124,6 +124,7 @@ executor:
     env["PYTHONPATH"] = (
         f"{tmpdir / 'qubes-builderv2'!s}:{os.environ.get('PYTHONPATH','')}"
     )
+    env["PYTHONUNBUFFERED"] = "1"
 
     if env.get("CI_PROJECT_DIR", None):
         cache_dir = (Path(env["CI_PROJECT_DIR"]) / "cache").resolve()

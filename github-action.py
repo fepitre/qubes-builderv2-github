@@ -408,6 +408,8 @@ class AutoAction(BaseAutoAction):
             distributions=self.distributions,
             stages=["fetch"],
         )
+        # for the purpose of this check, assume "True" as default
+        require_version_tag = self.config.get("fetch-versions-only", True)
         for dist in self.distributions:
             release_status = _check_release_status_for_component(
                 config=self.config,
@@ -419,10 +421,13 @@ class AutoAction(BaseAutoAction):
                 .get(dist.distribution, {})
                 .get("status", None)
                 == "not released"
-                and release_status.get(self.component.name, {})
-                .get(dist.distribution, {})
-                .get("tag", None)
-                != "no version tag"
+                and (
+                    not require_version_tag
+                    or release_status.get(self.component.name, {})
+                    .get(dist.distribution, {})
+                    .get("tag", None)
+                    != "no version tag"
+                )
             ) or self.dry_run:
                 with timeout(self.timeout):
                     stage = "build"

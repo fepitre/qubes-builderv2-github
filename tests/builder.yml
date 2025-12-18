@@ -118,6 +118,10 @@ components:
       branch: v1.0.36
   - grub2:
       branch: v2.06-2
+  - gui-common-noversion:
+      url: https://github.com/QubesOS/qubes-gui-common
+      branch: ci-test-noverion
+      fetch-versions-only: false
 
 iso:
   kickstart: conf/iso-online-testing.ks

@@ -101,6 +101,23 @@ def _build_component_check_multi(tmpdir):
     ).exists()
 
 
+def _build_component_check_noversion(tmpdir):
+    assert (
+        tmpdir
+        / f"artifacts/components/gui-common-noversion/4.2.4-1.1/host-fc37/publish/rpm_spec_gui-common.spec.publish.yml"
+    ).exists()
+
+    assert (
+        tmpdir
+        / f"artifacts/components/gui-common-noversion/4.2.4-1.1/vm-bookworm/publish/debian.publish.yml"
+    ).exists()
+
+    assert (
+        tmpdir
+        / f"artifacts/components/gui-common-noversion/4.2.4-1.1/vm-fc38/publish/rpm_spec_gui-common.spec.publish.yml"
+    ).exists()
+
+
 def _fix_timestamp_artifacts_path(artifacts_path):
     info = yaml.safe_load(artifacts_path.read())
 
@@ -146,7 +163,9 @@ def _fix_timestamp_repo(tmpdir):
         _fix_timestamp_artifacts_path(artifacts_path)
 
 
-def _upload_component_check(tmpdir, with_input_proxy=False):
+def _upload_component_check(
+    tmpdir, with_input_proxy=False, with_gui_common=False
+):
     # host-fc37
     rpms = [
         "qubes-gpg-split-dom0-2.0.60-1.fc37.src.rpm",
@@ -163,6 +182,11 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
         "qubes-input-proxy-sender-debuginfo-@VERSION@-1.@DIST@.x86_64.rpm",
     ]
     rpms_testing = []
+    if with_gui_common:
+        rpms_testing += [
+            "qubes-gui-common-devel-4.2.4-1.1.fc37.src.rpm",
+            "qubes-gui-common-devel-4.2.4-1.1.fc37.noarch.rpm",
+        ]
     if with_input_proxy:
         rpms_testing += [
             rpm.replace("@VERSION@", "1.0.35").replace("@DIST@", "fc37")
@@ -191,6 +215,11 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
         "qubes-gpg-split-debugsource-2.0.60-1.fc38.x86_64.rpm",
     ]
     rpms_testing = []
+    if with_gui_common:
+        rpms_testing += [
+            "qubes-gui-common-devel-4.2.4-1.1.fc38.src.rpm",
+            "qubes-gui-common-devel-4.2.4-1.1.fc38.noarch.rpm",
+        ]
     if with_input_proxy:
         rpms_testing += [
             rpm.replace("@VERSION@", "1.0.35").replace("@DIST@", "fc38")
@@ -224,6 +253,11 @@ def _upload_component_check(tmpdir, with_input_proxy=False):
             f"{codename}|main|amd64: qubes-gpg-split-tests 2.0.60-1+deb12u1",
             f"{codename}|main|source: qubes-gpg-split 2.0.60-1+deb12u1",
         ]
+        if "-testing" in codename and with_gui_common:
+            expected_packages += [
+                f"{codename}|main|amd64: qubes-gui-common 4.2.4+deb12u1+devel1",
+                f"{codename}|main|source: qubes-gui-common 4.2.4+deb12u1+devel1",
+            ]
         if "-testing" in codename and with_input_proxy:
             # default reprepro keeps only the latest version,
             # 1.0.35 won't be visible here
@@ -363,6 +397,53 @@ def test_action_component_build_multi(workdir):
     _build_component_check_multi(tmpdir)
 
 
+def test_action_component_build_noversion(token, github_repository, workdir):
+    tmpdir, env = workdir
+    set_conf_options(
+        tmpdir / "builder.yml",
+        {
+            "github": {
+                "api-key": token,
+                "build-report-repo": github_repository.full_name,
+            },
+            "increment-devel-versions": True,
+        },
+    )
+    cmd = [
+        str(PROJECT_PATH / "github-action.py"),
+        "--local-log-file",
+        f"{tmpdir}/build-component.log",
+        "--no-signer-github-command-check",
+        "build-component",
+        f"{tmpdir}/qubes-builderv2",
+        f"{tmpdir}/builder.yml",
+        "gui-common",
+    ]
+    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
+    _build_component_check_noversion(tmpdir)
+
+    labels, comments = get_labels_and_comments(
+        "gui-common-noversion v4.2.4-1-g1af0612 (r4.2)", github_repository
+    )
+
+    # Check that labels exist
+    assert set(labels) == {
+        "r4.2-host-cur-test",
+        "r4.2-vm-fc38-cur-test",
+        "r4.2-vm-bookworm-cur-test",
+    }
+
+    # Check that comments exist
+    assert comments == {
+        f"Package for host was built ([build log]({tmpdir / 'build-component.log'})).",
+        f"Package for vm-fc38 was built ([build log]({tmpdir / 'build-component.log'})).",
+        f"Package for vm-bookworm was built ([build log]({tmpdir / 'build-component.log'})).",
+        "Package for host was uploaded to current-testing repository.",
+        "Package for vm-fc38 was uploaded to current-testing repository.",
+        "Package for vm-bookworm was uploaded to current-testing repository.",
+    }
+
+
 def test_action_component_upload(workdir):
     tmpdir, env = workdir
 
@@ -401,7 +482,7 @@ def test_action_component_upload(workdir):
         "all",
     ]
     subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
-    _upload_component_check(tmpdir, with_input_proxy=True)
+    _upload_component_check(tmpdir, with_input_proxy=True, with_gui_common=True)
 
 
 # def test_action_component_build_and_upload_host_only(token, github_repository, workdir):

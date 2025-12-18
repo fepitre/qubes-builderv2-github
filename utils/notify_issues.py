@@ -169,10 +169,10 @@ class NotifyIssueCli:
                 "git",
                 "-C",
                 str(self.source_dir),
-                "tag",
-                "--list",
-                "--points-at=HEAD",
+                "describe",
+                "--match",
                 "v*",
+                "--always",
             ],
             stdout=subprocess.PIPE,
         )

@@ -408,8 +408,7 @@ class AutoAction(BaseAutoAction):
             distributions=self.distributions,
             stages=["fetch"],
         )
-        # for the purpose of this check, assume "True" as default
-        require_version_tag = self.config.get("fetch-versions-only", True)
+        require_version_tag = self.component.fetch_versions_only
         for dist in self.distributions:
             release_status = _check_release_status_for_component(
                 config=self.config,

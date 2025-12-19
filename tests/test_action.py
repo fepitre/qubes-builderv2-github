@@ -69,7 +69,7 @@ def _build_component_check(tmpdir):
     assert (
         tmpdir
         / f"artifacts/components/app-linux-split-gpg/2.0.60-1/vm-fc38/publish/rpm_spec_gpg-split.spec.publish.yml"
-    ).exists
+    ).exists()
 
 
 def _build_component_check_multi(tmpdir):
@@ -94,11 +94,11 @@ def _build_component_check_multi(tmpdir):
     assert (
         tmpdir
         / f"artifacts/components/input-proxy/1.0.35-1/vm-fc38/publish/rpm_spec_input-proxy.spec.publish.yml"
-    ).exists
+    ).exists()
     assert (
         tmpdir
         / f"artifacts/components/input-proxy-clone/1.0.36-1/vm-fc38/publish/rpm_spec_input-proxy.spec.publish.yml"
-    ).exists
+    ).exists()
 
 
 def _fix_timestamp_artifacts_path(artifacts_path):

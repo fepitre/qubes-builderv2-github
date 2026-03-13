@@ -314,7 +314,9 @@ class BaseAutoAction(ABC):
             "release_name": self.qubes_release,
             "source_dir": self.source_dir,
             "github_report_repo_name": self.build_report_repo,
-            "message_templates_dir": PROJECT_PATH / "templates",
+            "message_templates_dir": self.config.get("github", {}).get(
+                "message-templates-dir", PROJECT_PATH / "templates"
+            ),
             "min_age_days": self.config.get("min-age-days", 5),
         }
 

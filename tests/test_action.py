@@ -9,7 +9,7 @@ import dnf
 import pytest
 import yaml
 
-from conftest import set_conf_options, get_issue
+from conftest import set_conf_options, get_issue, run_cmd
 
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
@@ -20,6 +20,8 @@ TESTUSER_FPR = "632F8C69E01B25C9E0C3ADF2F360C0D259FB650C"
 
 def get_labels_and_comments(issue_title, github_repository):
     issue = get_issue(issue_title=issue_title, repository=github_repository)
+    if not issue:
+        return [], []
     labels = [label.name for label in issue.labels]
     comments = set([comment.body for comment in issue.get_comments()])
     return labels, comments
@@ -344,7 +346,8 @@ def test_action_component_build(token, github_repository, workdir):
         },
     )
     cmd = [
-        str(PROJECT_PATH / "github-action.py"),
+        str(PROJECT_PATH / "github-command.py"),
+        "action",
         "--local-log-file",
         f"{tmpdir}/build-component.log",
         "--no-signer-github-command-check",
@@ -353,7 +356,7 @@ def test_action_component_build(token, github_repository, workdir):
         f"{tmpdir}/builder.yml",
         "app-linux-split-gpg",
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
+    run_cmd(cmd, check=True, env=env, capture_output=True, text=True)
     _build_component_check(tmpdir)
 
     labels, comments = get_labels_and_comments(
@@ -382,7 +385,8 @@ def test_action_component_build_multi(workdir):
     tmpdir, env = workdir
 
     cmd = [
-        str(PROJECT_PATH / "github-action.py"),
+        str(PROJECT_PATH / "github-command.py"),
+        "action",
         "--local-log-file",
         f"{tmpdir}/build-component.log",
         "--signer-fpr",
@@ -392,7 +396,7 @@ def test_action_component_build_multi(workdir):
         f"{tmpdir}/builder.yml",
         "app-linux-input-proxy",
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
+    run_cmd(cmd, check=True, env=env, capture_output=True, text=True)
 
     _build_component_check_multi(tmpdir)
 
@@ -410,7 +414,8 @@ def test_action_component_build_noversion(token, github_repository, workdir):
         },
     )
     cmd = [
-        str(PROJECT_PATH / "github-action.py"),
+        str(PROJECT_PATH / "github-command.py"),
+        "action",
         "--local-log-file",
         f"{tmpdir}/build-component.log",
         "--no-signer-github-command-check",
@@ -419,7 +424,7 @@ def test_action_component_build_noversion(token, github_repository, workdir):
         f"{tmpdir}/builder.yml",
         "gui-common",
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
+    run_cmd(cmd, check=True, env=env, capture_output=True, text=True)
     _build_component_check_noversion(tmpdir)
 
     labels, comments = get_labels_and_comments(
@@ -448,7 +453,8 @@ def test_action_component_upload(workdir):
     tmpdir, env = workdir
 
     cmd = [
-        str(PROJECT_PATH / "github-action.py"),
+        str(PROJECT_PATH / "github-command.py"),
+        "action",
         "--local-log-file",
         f"{tmpdir}/upload-component.log",
         "--signer-fpr",
@@ -462,12 +468,13 @@ def test_action_component_upload(workdir):
         "--distribution",
         "vm-bookworm",
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
+    run_cmd(cmd, check=True, env=env, capture_output=True, text=True)
 
     _fix_timestamp_repo(tmpdir)
 
     cmd = [
-        str(PROJECT_PATH / "github-action.py"),
+        str(PROJECT_PATH / "github-command.py"),
+        "action",
         "--local-log-file",
         f"{tmpdir}/upload-component.log",
         "--signer-fpr",
@@ -481,85 +488,8 @@ def test_action_component_upload(workdir):
         "--distribution",
         "all",
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
+    run_cmd(cmd, check=True, env=env, capture_output=True, text=True)
     _upload_component_check(tmpdir, with_input_proxy=True, with_gui_common=True)
-
-
-# def test_action_component_build_and_upload_host_only(token, github_repository, workdir):
-#     tmpdir, env = workdir
-#     set_conf_options(
-#         tmpdir / "builder.yml",
-#         {
-#             "github": {
-#                 "api-key": token,
-#                 "build-report-repo": github_repository.full_name,
-#             }
-#         },
-#     )
-#
-#     cmd = [
-#         str(PROJECT_PATH / "github-action.py"),
-#         "--local-log-file",
-#         f"{tmpdir}/build-component.log",
-#         "--no-signer-github-command-check",
-#         "build-component",
-#         f"{tmpdir}/qubes-builderv2",
-#         f"{tmpdir}/builder.yml",
-#         "grub2",
-#     ]
-#     subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
-#
-#     cmd = [
-#         str(PROJECT_PATH / "github-action.py"),
-#         "--local-log-file",
-#         f"{tmpdir}/upload-component.log",
-#         "--no-signer-github-command-check",
-#         "upload-component",
-#         f"{tmpdir}/qubes-builderv2",
-#         f"{tmpdir}/builder.yml",
-#         "grub2",
-#         "2596baff182a035a34d76ec3551464f88f7b6c03",
-#         "security-testing",
-#         "--distribution",
-#         "host-fc37",
-#     ]
-#     subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
-#
-#     _fix_timestamp_artifacts_path(
-#         tmpdir
-#         / "artifacts/components/grub2/2.06-2/host-fc37/publish/grub2.spec.publish.yml"
-#     )
-#
-#     cmd = [
-#         str(PROJECT_PATH / "github-action.py"),
-#         "--local-log-file",
-#         f"{tmpdir}/upload-component.log",
-#         "--no-signer-github-command-check",
-#         "upload-component",
-#         f"{tmpdir}/qubes-builderv2",
-#         f"{tmpdir}/builder.yml",
-#         "grub2",
-#         "2596baff182a035a34d76ec3551464f88f7b6c03",
-#         "current",
-#         "--distribution",
-#         "all",
-#     ]
-#     subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
-#
-#     labels, comments = get_labels_and_comments(
-#         "grub2 v2.06-2 (r4.2)", github_repository
-#     )
-#
-#     # Check that labels exist
-#     assert set(labels) == {"r4.2-host-stable"}
-#
-#     # Check that comments exist
-#     assert comments == {
-#         f"Package for host was built ([build log]({tmpdir / 'build-component.log'})).",
-#         "Package for host was uploaded to current-testing repository.",
-#         "Package for host was uploaded to security-testing repository.",
-#         "Package for host was uploaded to stable repository.",
-#     }
 
 
 def test_action_template_build(token, github_repository, workdir):
@@ -574,24 +504,13 @@ def test_action_template_build(token, github_repository, workdir):
         },
     )
 
-    # this normally is done by getting "build-component" call for
-    # builder-debian component when it gets updated; simulate it here
-    cmd = [
-        f"{tmpdir}/qubes-builderv2/qb",
-        f"--builder-conf={tmpdir}/builder.yml",
-        "-c",
-        "builder-debian",
-        "package",
-        "fetch",
-    ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
-
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
     with open(tmpdir / "timestamp", "w") as f:
         f.write(timestamp)
 
     cmd = [
-        str(PROJECT_PATH / "github-action.py"),
+        str(PROJECT_PATH / "github-command.py"),
+        "action",
         "--local-log-file",
         f"{tmpdir}/build-template.log",
         "--signer-fpr",
@@ -602,7 +521,7 @@ def test_action_template_build(token, github_repository, workdir):
         "debian-12-minimal",
         timestamp,
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
+    run_cmd(cmd, check=True, env=env, capture_output=True, text=True)
     _build_template_check(tmpdir)
 
     labels, comments = get_labels_and_comments(
@@ -636,7 +555,8 @@ def test_action_template_upload(token, github_repository, workdir):
     build_timestamp = info["timestamp"]
 
     cmd = [
-        str(PROJECT_PATH / "github-action.py"),
+        str(PROJECT_PATH / "github-command.py"),
+        "action",
         "--local-log-file",
         f"{tmpdir}/upload-template.log",
         "--signer-fpr",
@@ -648,7 +568,7 @@ def test_action_template_upload(token, github_repository, workdir):
         f"4.2.0-{build_timestamp}",
         "templates-itl",
     ]
-    subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
+    run_cmd(cmd, check=True, env=env, capture_output=True, text=True)
     _upload_template_check(tmpdir, build_timestamp)
 
     labels, comments = get_labels_and_comments(
@@ -685,7 +605,8 @@ async def test_action_iso_build(token, github_repository, workdir):
         f.write(timestamp)
 
     cmd = [
-        str(PROJECT_PATH / "github-action.py"),
+        str(PROJECT_PATH / "github-command.py"),
+        "action",
         "--local-log-file",
         f"{tmpdir}/build-iso.log",
         "--signer-fpr",

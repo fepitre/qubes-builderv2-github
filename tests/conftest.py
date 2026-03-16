@@ -1,14 +1,16 @@
+import importlib.util
 import os
 import random
 import shutil
 import string
 import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 
 import pytest
 import yaml
-from github import Github
+from github import Github, Auth
 
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
@@ -45,7 +47,7 @@ def token():
 
 @pytest.fixture(scope="session")
 def github_repository(token):
-    g = Github(token)
+    g = Github(auth=Auth.Token(token))
     user = g.get_user()
     if user.login != "fepitre2-bot":
         raise ValueError(f"Unexpected user '{user}'.")
@@ -62,9 +64,9 @@ def base_workdir(tmpdir_factory):
 
     env = os.environ.copy()
     # Enforce keyring location
-    env["GNUPGHOME"] = tmpdir / ".gnupg"
+    env["GNUPGHOME"] = str(tmpdir / ".gnupg")
     # We prevent rpm to find ~/.rpmmacros and put logs into workdir
-    env["HOME"] = tmpdir
+    env["HOME"] = str(tmpdir)
 
     yield tmpdir, env
 
@@ -100,7 +102,7 @@ executor:
         )
 
     # Clone qubes-builderv2 (GitLab)
-    subprocess.run(
+    run_cmd(
         [
             "git",
             "-C",
@@ -119,11 +121,12 @@ executor:
     )
 
     # Enforce keyring location
-    env["GNUPGHOME"] = tmpdir / ".gnupg"
+    env["GNUPGHOME"] = str(tmpdir / ".gnupg")
     # Set PYTHONPATH with cloned qubes-builderv2
     env["PYTHONPATH"] = (
         f"{tmpdir / 'qubes-builderv2'!s}:{os.environ.get('PYTHONPATH','')}"
     )
+    env["PYTHONUNBUFFERED"] = "1"
 
     if env.get("CI_PROJECT_DIR", None):
         cache_dir = (Path(env["CI_PROJECT_DIR"]) / "cache").resolve()
@@ -152,3 +155,46 @@ def get_issue(issue_title, repository):
             issue = i
             break
     return issue
+
+
+def load_action_module(env: dict, project_path: Path, monkeypatch):
+    """Load githubbuilder/action.py as a fresh module instance with env applied."""
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+    py_path = env.get("PYTHONPATH", "")
+    for entry in reversed([p for p in py_path.split(os.pathsep) if p]):
+        monkeypatch.syspath_prepend(entry)
+    monkeypatch.syspath_prepend(str(project_path))
+    spec = importlib.util.spec_from_file_location(
+        "githubbuilder.action", str(project_path / "githubbuilder/action.py")
+    )
+    mod = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    monkeypatch.setitem(sys.modules, "githubbuilder.action", mod)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def load_config_class(tmpdir):
+    """Load qubesbuilder/config.py as a fresh module instance."""
+    config_py = tmpdir / "qubes-builderv2" / "qubesbuilder" / "config.py"
+    spec = importlib.util.spec_from_file_location(
+        "qubesbuilder.config", str(config_py)
+    )
+    mod = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules["qubesbuilder.config"] = mod
+    spec.loader.exec_module(mod)
+    return mod.Config
+
+
+def run_cmd(cmd, **kwargs):
+    try:
+        return subprocess.run(cmd, **kwargs)
+    except subprocess.CalledProcessError as e:
+        pytest.fail(
+            f"Command failed:\n{' '.join(e.cmd)}\n"
+            f"Return code: {e.returncode}\n"
+            f"STDOUT:\n{e.stdout}\n"
+            f"STDERR:\n{e.stderr}"
+        )

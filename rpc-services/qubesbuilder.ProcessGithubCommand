@@ -37,19 +37,19 @@ read -r action args < "$tmpdir/command"
 
 case "$action" in
 #    Build-component)
-#        "$scripts_dir/github-command.py" --log-basename "${log_basename}" log_basename --signer-fpr "$command_signer" Build-component "$tmpdir/command"
+#        "$scripts_dir/github-command.py" dispatch --log-basename "${log_basename}" log_basename --signer-fpr "$command_signer" Build-component "$tmpdir/command"
 #        ;;
     Upload-component)
-        "$scripts_dir/github-command.py" --log-basename "${log_basename}" --signer-fpr "$command_signer" Upload-component "$tmpdir/command"
+        "$scripts_dir/github-command.py" dispatch --log-basename "${log_basename}" --signer-fpr "$command_signer" Upload-component "$tmpdir/command"
         ;;
     Build-template)
-        "$scripts_dir/github-command.py" --log-basename "${log_basename}" --signer-fpr "$command_signer" Build-template "$tmpdir/command"
+        "$scripts_dir/github-command.py" dispatch --log-basename "${log_basename}" --signer-fpr "$command_signer" Build-template "$tmpdir/command"
         ;;
     Upload-template)
-        "$scripts_dir/github-command.py" --log-basename "${log_basename}" --signer-fpr "$command_signer" Upload-template "$tmpdir/command"
+        "$scripts_dir/github-command.py" dispatch --log-basename "${log_basename}" --signer-fpr "$command_signer" Upload-template "$tmpdir/command"
         ;;
     Build-iso)
-        "$scripts_dir/github-command.py" --log-basename "${log_basename}" --signer-fpr "$command_signer" Build-iso "$tmpdir/command"
+        "$scripts_dir/github-command.py" dispatch --log-basename "${log_basename}" --signer-fpr "$command_signer" Build-iso "$tmpdir/command"
         ;;
     *)
         echo "Unknown command $action" >&2

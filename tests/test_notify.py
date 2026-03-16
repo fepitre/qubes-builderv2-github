@@ -1,11 +1,12 @@
 import datetime
-import subprocess
 from pathlib import Path
 
-from conftest import get_issue
+from conftest import get_issue, run_cmd
 
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
+
+NOTIFY_CMD = str(PROJECT_PATH / "github-command.py")
 
 
 def test_notify_000_template_build_success_upload(
@@ -25,7 +26,8 @@ def test_notify_000_template_build_success_upload(
 
     status = "building"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -36,7 +38,7 @@ def test_notify_000_template_build_success_upload(
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     issue_title = f"qubes-template-{template_name} 4.2.0-{timestamp} (r4.2)"
     issue_desc = f"""Template {template_name} 4.2.0-{timestamp} for Qubes OS r4.2, see comments below for details and build status.
@@ -68,7 +70,8 @@ For more information on how to test this update, please take a look at https://w
     #
     status = "built"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -79,14 +82,15 @@ For more information on how to test this update, please take a look at https://w
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     #
     # upload
     #
     upload_repository = "templates-itl-testing"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -100,7 +104,7 @@ For more information on how to test this update, please take a look at https://w
         str(tmpdir / "state_file"),
         str(tmpdir / "stable_state_file"),
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     # Refresh issue object
     issue.update()
@@ -136,7 +140,8 @@ def test_notify_001_template_build_failure(token, github_repository, workdir):
 
     status = "building"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -147,7 +152,7 @@ def test_notify_001_template_build_failure(token, github_repository, workdir):
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     issue_title = f"qubes-template-{template_name} 4.2.0-{timestamp} (r4.2)"
     issue = get_issue(issue_title=issue_title, repository=github_repository)
@@ -158,7 +163,8 @@ def test_notify_001_template_build_failure(token, github_repository, workdir):
 
     status = "failed"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -169,7 +175,7 @@ def test_notify_001_template_build_failure(token, github_repository, workdir):
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     # Refresh issue object
     issue.update()
@@ -204,7 +210,8 @@ def test_notify_002_template_build_success_upload_failure(
 
     status = "building"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -215,7 +222,7 @@ def test_notify_002_template_build_success_upload_failure(
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     issue_title = f"qubes-template-{template_name} 4.2.0-{timestamp} (r4.2)"
     issue_desc = f"""Template {template_name} 4.2.0-{timestamp} for Qubes OS r4.2, see comments below for details and build status.
@@ -247,7 +254,8 @@ For more information on how to test this update, please take a look at https://w
     #
     status = "built"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -258,14 +266,15 @@ For more information on how to test this update, please take a look at https://w
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     #
     # upload testing
     #
     upload_repository = "templates-community-testing"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -279,14 +288,15 @@ For more information on how to test this update, please take a look at https://w
         str(tmpdir / "state_file"),
         str(tmpdir / "stable_state_file"),
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     #
     # upload stable
     #
     upload_repository = "templates-community"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -300,7 +310,7 @@ For more information on how to test this update, please take a look at https://w
         str(tmpdir / "state_file"),
         str(tmpdir / "stable_state_file"),
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     # Refresh issue object
     issue.update()
@@ -339,7 +349,8 @@ def test_notify_020_iso_build_success_upload(token, github_repository, workdir):
 
     status = "building"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -350,7 +361,7 @@ def test_notify_020_iso_build_success_upload(token, github_repository, workdir):
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     issue_title = f"iso 4.2.{timestamp} (r4.2)"
     issue_desc = f"""ISO 4.2.{timestamp} for Qubes OS r4.2, see comments below for details and build status.
@@ -376,7 +387,8 @@ For more information on how to test this update, please take a look at https://w
 
     status = "built"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -387,14 +399,15 @@ For more information on how to test this update, please take a look at https://w
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     #
     # upload
     #
     upload_repository = "iso-testing"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -408,7 +421,7 @@ For more information on how to test this update, please take a look at https://w
         str(tmpdir / "state_file"),
         str(tmpdir / "stable_state_file"),
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     # Refresh issue object
     issue.update()
@@ -442,7 +455,8 @@ def test_notify_021_iso_build_failure(token, github_repository, workdir):
 
     status = "building"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -453,7 +467,7 @@ def test_notify_021_iso_build_failure(token, github_repository, workdir):
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     issue_title = f"iso 4.2.{timestamp} (r4.2)"
     issue = get_issue(issue_title=issue_title, repository=github_repository)
@@ -464,7 +478,8 @@ def test_notify_021_iso_build_failure(token, github_repository, workdir):
 
     status = "failed"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -475,7 +490,7 @@ def test_notify_021_iso_build_failure(token, github_repository, workdir):
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     # Refresh issue object
     issue.update()
@@ -502,7 +517,7 @@ def test_notify_040_component_build_success_upload(
     package_name = "core-admin-linux"
     version = "4.2.6"
 
-    subprocess.run(
+    run_cmd(
         [
             "git",
             "-C",
@@ -522,7 +537,8 @@ def test_notify_040_component_build_success_upload(
 
     status = "building"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -533,7 +549,7 @@ def test_notify_040_component_build_success_upload(
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     # FIXME: improve generation of expected desc?
     issue_desc = f"""Update of {package_name} to v4.2.6 for Qubes OS r4.2, see comments below for details and build status.
@@ -592,7 +608,8 @@ For more information on how to test this update, please take a look at https://w
     #
     status = "built"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -603,7 +620,7 @@ For more information on how to test this update, please take a look at https://w
         distribution,
         status,
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     # Refresh issue object
     issue.update()
@@ -613,7 +630,8 @@ For more information on how to test this update, please take a look at https://w
     #
     upload_repository = "current-testing"
     cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
+        NOTIFY_CMD,
+        "notify",
         f"--build-log={build_log}",
         f"--message-templates-dir={PROJECT_PATH}/templates",
         f"--github-report-repo-name={github_repository.full_name}",
@@ -627,7 +645,7 @@ For more information on how to test this update, please take a look at https://w
         str(tmpdir / "state_file"),
         str(tmpdir / "stable_state_file"),
     ]
-    subprocess.run(cmd, check=True, env=env)
+    run_cmd(cmd, check=True, env=env)
 
     # Refresh issue object
     issue.update()

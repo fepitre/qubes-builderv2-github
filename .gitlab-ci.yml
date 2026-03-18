@@ -48,63 +48,83 @@ mypy:
   tags:
     - qubes
     - vm
+  variables:
+    PYTEST_ARGS: >-
+      -vvv --showlocals --color=yes
+      --tb=long
+      --capture=no
+      -rA
+      -o truncation_limit_chars=0
+      -o truncation_limit_lines=0
+      -o junit_logging=all
+      --junitxml=results/junit.xml
   artifacts:
     when: always
     paths:
-      - results
+      - results/
+    reports:
+      junit: results/junit.xml
   before_script:
     - sudo dnf install -y python3-pathspec python3-pytest sequoia-sq sequoia-sqv sequoia-chameleon-gnupg python3-github python3-psutil python3-pytest-asyncio
+    - mkdir -p "$CI_PROJECT_DIR/results"
+  script:
+    - TMPDIR=~ pytest-3 $PYTEST_ARGS $PYTEST_TARGETS
   after_script:
-    - mkdir $CI_PROJECT_DIR/results
-    - cp -r ~/pytest-of-$USER/pytest-current/github-current/*.log $CI_PROJECT_DIR/results || true
-    - cp -r ~/pytest-of-$USER/pytest-current/github-current/builder-github-logs $CI_PROJECT_DIR/results/
+    - mkdir -p "$CI_PROJECT_DIR/results"
+    - cp -r ~/pytest-of-$USER/pytest-current/github-current/*.log "$CI_PROJECT_DIR/results"/ 2>/dev/null || true
+    - cp -r ~/pytest-of-$USER/pytest-current/github-current/builder-github-logs "$CI_PROJECT_DIR/results"/ 2>/dev/null || true
 
 test-common:
   extends: .pytest
-  script:
-    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_common.py
+  variables:
+    PYTEST_TARGETS: "tests/test_common.py"
 
 test-action-component:
   extends: .pytest
-  script:
-    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_action.py -k test_action_component
+  variables:
+    PYTEST_TARGETS: "tests/test_action.py -k test_action_component"
 
 test-action-template:
   extends: .pytest
-  script:
-    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_action.py -k test_action_template
+  variables:
+    PYTEST_TARGETS: "tests/test_action.py -k test_action_template"
 
 test-action-iso:
   extends: .pytest
-  script:
-    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_action.py -k test_action_iso
+  variables:
+    PYTEST_TARGETS: "tests/test_action.py -k test_action_iso"
+
+test-action-logging:
+  extends: .pytest
+  variables:
+    PYTEST_TARGETS: "tests/test_action_bis.py -k test_action_"
 
 test-rpc-parse:
   extends: .pytest
-  script:
-    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_rpc.py -k _parse_
+  variables:
+    PYTEST_TARGETS: "tests/test_rpc.py -k _parse_"
 
 test-rpc-component:
   extends: .pytest
-  script:
-    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_rpc.py -k "test_rpc_04 or test_rpc_05"
+  variables:
+    PYTEST_TARGETS: "tests/test_rpc.py -k test_rpc_04"
 
 test-rpc-template:
   extends: .pytest
-  script:
-    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_rpc.py -k "test_rpc_06 or test_rpc_07"
+  variables:
+    PYTEST_TARGETS: "tests/test_rpc.py -k test_rpc_05"
 
 test-rpc-iso:
   extends: .pytest
-  script:
-    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_rpc.py -k test_rpc_08
+  variables:
+    PYTEST_TARGETS: "tests/test_rpc.py -k test_rpc_06"
 
 test-command:
   extends: .pytest
-  script:
-    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_command.py
+  variables:
+    PYTEST_TARGETS: "tests/test_command.py"
 
 test-notify:
   extends: .pytest
-  script:
-    - TMPDIR=~ pytest-3 -vvv --showlocals --color=yes tests/test_notify.py
+  variables:
+    PYTEST_TARGETS: "tests/test_notify.py"

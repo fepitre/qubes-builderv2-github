@@ -1,11 +1,23 @@
 import datetime
-import subprocess
+import sys
 from pathlib import Path
 
-from conftest import get_issue
+from conftest import get_issue, make_distribution, run_cmd
 
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
+
+
+def make_notify_cli(token, source_dir, github_repository):
+    NotifyIssueCli = sys.modules["githubbuilder.notify_issues"].NotifyIssueCli
+    return NotifyIssueCli(
+        token=token,
+        release_name="r4.2",
+        source_dir=Path(source_dir),
+        message_templates_dir=PROJECT_PATH / "templates",
+        github_report_repo_name=github_repository.full_name,
+        min_age_days=5,
+    )
 
 
 def test_notify_000_template_build_success_upload(
@@ -17,26 +29,20 @@ def test_notify_000_template_build_success_upload(
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
     template_name = "fedora-42"
     package_name = f"qubes-template-{template_name}-4.2.0-{timestamp}"
-    distribution = "vm-fc42"
+    dist = make_distribution("vm-fc42")
+    notify_cli = make_notify_cli(token, tmpdir, github_repository)
 
     #
     # build
     #
 
-    status = "building"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "build",
-        "r4.2",
-        str(tmpdir),
-        package_name,
-        distribution,
-        status,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="build",
+        dist=dist,
+        package_name=package_name,
+        build_status="building",
+        build_log=build_log,
+    )
 
     issue_title = f"qubes-template-{template_name} 4.2.0-{timestamp} (r4.2)"
     issue_desc = f"""Template {template_name} 4.2.0-{timestamp} for Qubes OS r4.2, see comments below for details and build status.
@@ -58,7 +64,7 @@ For more information on how to test this update, please take a look at https://w
 
     # Only one status tag
     assert len(issue.labels) == 1
-    assert issue.labels[0].name == f"r4.2-{status}"
+    assert issue.labels[0].name == "r4.2-building"
 
     # Check description
     assert issue.body == issue_desc
@@ -66,48 +72,37 @@ For more information on how to test this update, please take a look at https://w
     #
     # built
     #
-    status = "built"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "build",
-        "r4.2",
-        str(tmpdir),
-        package_name,
-        distribution,
-        status,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+
+    notify_cli.run(
+        command="build",
+        dist=dist,
+        package_name=package_name,
+        build_status="built",
+        build_log=build_log,
+    )
 
     #
     # upload
     #
+
     upload_repository = "templates-itl-testing"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "upload",
-        "r4.2",
-        tmpdir,
-        package_name,
-        distribution,
-        "uploaded",
-        upload_repository,
-        str(tmpdir / "state_file"),
-        str(tmpdir / "stable_state_file"),
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="upload",
+        dist=dist,
+        package_name=package_name,
+        build_status="uploaded",
+        repository_type=upload_repository,
+        state_file=tmpdir / "state_file",
+        stable_state_file=tmpdir / "stable_state_file",
+        build_log=build_log,
+    )
 
     # Refresh issue object
     issue.update()
 
     # Only one status tag
     assert len(issue.labels) == 1
-    assert issue.labels[0].name == f"r4.2-testing"
+    assert issue.labels[0].name == "r4.2-testing"
 
     # Check that comment exists
     comments = list(issue.get_comments())
@@ -128,55 +123,43 @@ def test_notify_001_template_build_failure(token, github_repository, workdir):
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
     template_name = "debian-13"
     package_name = f"qubes-template-{template_name}-4.2.0-{timestamp}"
-    distribution = "vm-trixie"
+    dist = make_distribution("vm-trixie")
+    notify_cli = make_notify_cli(token, tmpdir, github_repository)
 
     #
     # build
     #
 
-    status = "building"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "build",
-        "r4.2",
-        str(tmpdir),
-        package_name,
-        distribution,
-        status,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="build",
+        dist=dist,
+        package_name=package_name,
+        build_status="building",
+        build_log=build_log,
+    )
 
     issue_title = f"qubes-template-{template_name} 4.2.0-{timestamp} (r4.2)"
+
     issue = get_issue(issue_title=issue_title, repository=github_repository)
 
     #
     # failure
     #
 
-    status = "failed"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "build",
-        "r4.2",
-        str(tmpdir),
-        package_name,
-        distribution,
-        status,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="build",
+        dist=dist,
+        package_name=package_name,
+        build_status="failed",
+        build_log=build_log,
+    )
 
     # Refresh issue object
     issue.update()
 
     # Only one status tag
     assert len(issue.labels) == 1
-    assert issue.labels[0].name == f"r4.2-failed"
+    assert issue.labels[0].name == "r4.2-failed"
 
     # Check that comment exists
     comments = list(issue.get_comments())
@@ -196,26 +179,20 @@ def test_notify_002_template_build_success_upload_failure(
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
     template_name = "whonix-gateway-17"
     package_name = f"qubes-template-{template_name}-4.2.0-{timestamp}"
-    distribution = "vm-bookworm"
+    dist = make_distribution("vm-bookworm")
+    notify_cli = make_notify_cli(token, tmpdir, github_repository)
 
     #
     # build
     #
 
-    status = "building"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "build",
-        "r4.2",
-        str(tmpdir),
-        package_name,
-        distribution,
-        status,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="build",
+        dist=dist,
+        package_name=package_name,
+        build_status="building",
+        build_log=build_log,
+    )
 
     issue_title = f"qubes-template-{template_name} 4.2.0-{timestamp} (r4.2)"
     issue_desc = f"""Template {template_name} 4.2.0-{timestamp} for Qubes OS r4.2, see comments below for details and build status.
@@ -237,7 +214,7 @@ For more information on how to test this update, please take a look at https://w
 
     # Only one status tag
     assert len(issue.labels) == 1
-    assert issue.labels[0].name == f"r4.2-{status}"
+    assert issue.labels[0].name == "r4.2-building"
 
     # Check description
     assert issue.body == issue_desc
@@ -245,69 +222,53 @@ For more information on how to test this update, please take a look at https://w
     #
     # built
     #
-    status = "built"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "build",
-        "r4.2",
-        str(tmpdir),
-        package_name,
-        distribution,
-        status,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+
+    notify_cli.run(
+        command="build",
+        dist=dist,
+        package_name=package_name,
+        build_status="built",
+        build_log=build_log,
+    )
 
     #
     # upload testing
     #
+
     upload_repository = "templates-community-testing"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "upload",
-        "r4.2",
-        tmpdir,
-        package_name,
-        distribution,
-        "uploaded",
-        upload_repository,
-        str(tmpdir / "state_file"),
-        str(tmpdir / "stable_state_file"),
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="upload",
+        dist=dist,
+        package_name=package_name,
+        build_status="uploaded",
+        repository_type=upload_repository,
+        state_file=tmpdir / "state_file",
+        stable_state_file=tmpdir / "stable_state_file",
+        build_log=build_log,
+    )
 
     #
     # upload stable
     #
+
     upload_repository = "templates-community"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "upload",
-        "r4.2",
-        tmpdir,
-        package_name,
-        distribution,
-        "failed",
-        upload_repository,
-        str(tmpdir / "state_file"),
-        str(tmpdir / "stable_state_file"),
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="upload",
+        dist=dist,
+        package_name=package_name,
+        build_status="failed",
+        repository_type=upload_repository,
+        state_file=tmpdir / "state_file",
+        stable_state_file=tmpdir / "stable_state_file",
+        build_log=build_log,
+    )
 
     # Refresh issue object
     issue.update()
 
     # Only one status tag
     assert len(issue.labels) == 1
-    assert issue.labels[0].name == f"r4.2-testing"
+    assert issue.labels[0].name == "r4.2-testing"
 
     # Check that comment exists
     comments = list(issue.get_comments())
@@ -332,25 +293,20 @@ def test_notify_020_iso_build_success_upload(token, github_repository, workdir):
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
     distribution = "host-fc42"
     package_name = f"iso-{distribution}-4.2.{timestamp}"
+    dist = make_distribution(distribution)
+    notify_cli = make_notify_cli(token, tmpdir, github_repository)
 
     #
     # build
     #
 
-    status = "building"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "build",
-        "r4.2",
-        str(tmpdir),
-        package_name,
-        distribution,
-        status,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="build",
+        dist=dist,
+        package_name=package_name,
+        build_status="building",
+        build_log=build_log,
+    )
 
     issue_title = f"iso 4.2.{timestamp} (r4.2)"
     issue_desc = f"""ISO 4.2.{timestamp} for Qubes OS r4.2, see comments below for details and build status.
@@ -365,7 +321,7 @@ For more information on how to test this update, please take a look at https://w
 
     # Only one status tag
     assert len(issue.labels) == 1
-    assert issue.labels[0].name == f"r4.2-{status}"
+    assert issue.labels[0].name == "r4.2-building"
 
     # Check description
     assert issue.body == issue_desc
@@ -374,48 +330,36 @@ For more information on how to test this update, please take a look at https://w
     # built
     #
 
-    status = "built"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "build",
-        "r4.2",
-        str(tmpdir),
-        package_name,
-        distribution,
-        status,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="build",
+        dist=dist,
+        package_name=package_name,
+        build_status="built",
+        build_log=build_log,
+    )
 
     #
     # upload
     #
+
     upload_repository = "iso-testing"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "upload",
-        "r4.2",
-        tmpdir,
-        package_name,
-        distribution,
-        "uploaded",
-        upload_repository,
-        str(tmpdir / "state_file"),
-        str(tmpdir / "stable_state_file"),
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="upload",
+        dist=dist,
+        package_name=package_name,
+        build_status="uploaded",
+        repository_type=upload_repository,
+        state_file=tmpdir / "state_file",
+        stable_state_file=tmpdir / "stable_state_file",
+        build_log=build_log,
+    )
 
     # Refresh issue object
     issue.update()
 
     # Only one status tag
     assert len(issue.labels) == 1
-    assert issue.labels[0].name == f"r4.2-testing"
+    assert issue.labels[0].name == "r4.2-testing"
 
     # Check that comment exists
     comments = list(issue.get_comments())
@@ -435,54 +379,43 @@ def test_notify_021_iso_build_failure(token, github_repository, workdir):
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%s")
     distribution = "host-fc42"
     package_name = f"iso-{distribution}-4.2.{timestamp}"
+    dist = make_distribution(distribution)
+    notify_cli = make_notify_cli(token, tmpdir, github_repository)
 
     #
     # build
     #
 
-    status = "building"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "build",
-        "r4.2",
-        str(tmpdir),
-        package_name,
-        distribution,
-        status,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="build",
+        dist=dist,
+        package_name=package_name,
+        build_status="building",
+        build_log=build_log,
+    )
 
     issue_title = f"iso 4.2.{timestamp} (r4.2)"
+
     issue = get_issue(issue_title=issue_title, repository=github_repository)
 
     #
     # failure
     #
 
-    status = "failed"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "build",
-        "r4.2",
-        str(tmpdir),
-        package_name,
-        distribution,
-        status,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="build",
+        dist=dist,
+        package_name=package_name,
+        build_status="failed",
+        build_log=build_log,
+    )
 
     # Refresh issue object
     issue.update()
 
     # Only one status tag
     assert len(issue.labels) == 1
-    assert issue.labels[0].name == f"r4.2-failed"
+    assert issue.labels[0].name == "r4.2-failed"
 
     # Check that comment exists
     comments = list(issue.get_comments())
@@ -498,11 +431,11 @@ def test_notify_040_component_build_success_upload(
 ):
     tmpdir, env = workdir
     build_log = "dummy"
-    distribution = "vm-fc42"
+    dist = make_distribution("vm-fc42")
     package_name = "core-admin-linux"
     version = "4.2.6"
 
-    subprocess.run(
+    run_cmd(
         [
             "git",
             "-C",
@@ -516,24 +449,21 @@ def test_notify_040_component_build_success_upload(
         check=True,
     )
 
+    notify_cli = make_notify_cli(
+        token, tmpdir / package_name, github_repository
+    )
+
     #
     # build
     #
 
-    status = "building"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "build",
-        "r4.2",
-        str(tmpdir / package_name),
-        package_name,
-        distribution,
-        status,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="build",
+        dist=dist,
+        package_name=package_name,
+        build_status="building",
+        build_log=build_log,
+    )
 
     # FIXME: improve generation of expected desc?
     issue_desc = f"""Update of {package_name} to v4.2.6 for Qubes OS r4.2, see comments below for details and build status.
@@ -555,7 +485,6 @@ QubesOS/qubes-{package_name}@9984d65 Ignore all ZFS volumes that are part of a Q
 
 Referenced issues:
 
-
 If you're release manager, you can issue GPG-inline signed command:
 
 * `Upload-component r4.2 {package_name} a6ff3071aa650f6ae9639c07e133eb27cffd91df current all` (available 5 days from now)
@@ -569,6 +498,7 @@ Above commands will work only if packages in current-testing repository were bui
 For more information on how to test this update, please take a look at https://www.qubes-os.org/doc/testing/#updates.
 """
     issue_title = f"{package_name} v{version} (r4.2)"
+
     issue = get_issue(issue_title=issue_title, repository=github_repository)
 
     # Check if issue has been created
@@ -576,13 +506,10 @@ For more information on how to test this update, please take a look at https://w
 
     # Only one status tag
     assert len(issue.labels) == 1
-    assert issue.labels[0].name == f"r4.2-{distribution}-{status}"
+    assert issue.labels[0].name == f"r4.2-{dist.distribution}-building"
 
     # Check description
     assert issue.body == issue_desc
-
-    # with open(tmpdir / "state_file", "w") as fd:
-    #     fd.write("1178add9fcb18e865b0fc3408cfbd2baa1391024")
 
     with open(tmpdir / "stable_state_file", "w") as fd:
         fd.write("1178add9fcb18e865b0fc3408cfbd2baa1391024")
@@ -590,20 +517,14 @@ For more information on how to test this update, please take a look at https://w
     #
     # built
     #
-    status = "built"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "build",
-        "r4.2",
-        str(tmpdir / package_name),
-        package_name,
-        distribution,
-        status,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+
+    notify_cli.run(
+        command="build",
+        dist=dist,
+        package_name=package_name,
+        build_status="built",
+        build_log=build_log,
+    )
 
     # Refresh issue object
     issue.update()
@@ -611,30 +532,25 @@ For more information on how to test this update, please take a look at https://w
     #
     # upload
     #
+
     upload_repository = "current-testing"
-    cmd = [
-        str(PROJECT_PATH / "utils/notify_issues.py"),
-        f"--build-log={build_log}",
-        f"--message-templates-dir={PROJECT_PATH}/templates",
-        f"--github-report-repo-name={github_repository.full_name}",
-        "upload",
-        "r4.2",
-        str(tmpdir / package_name),
-        package_name,
-        distribution,
-        "uploaded",
-        upload_repository,
-        str(tmpdir / "state_file"),
-        str(tmpdir / "stable_state_file"),
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    notify_cli.run(
+        command="upload",
+        dist=dist,
+        package_name=package_name,
+        build_status="uploaded",
+        repository_type=upload_repository,
+        state_file=tmpdir / "state_file",
+        stable_state_file=tmpdir / "stable_state_file",
+        build_log=build_log,
+    )
 
     # Refresh issue object
     issue.update()
 
     # Only one status tag
     assert len(issue.labels) == 1
-    assert issue.labels[0].name == f"r4.2-{distribution}-cur-test"
+    assert issue.labels[0].name == f"r4.2-{dist.distribution}-cur-test"
 
     # Check that comment exists
     comments = list(issue.get_comments())

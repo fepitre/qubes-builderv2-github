@@ -20,17 +20,16 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 import logging
 import os
 import re
 import subprocess
-import sys
-from argparse import ArgumentParser
 from pathlib import Path
 from typing import Optional
 
-from github import Github, GithubException
+from github import Github, GithubException, Auth
 
 from qubesbuilder.distribution import QubesDistribution
 
@@ -66,13 +65,17 @@ class NotifyIssueCli:
         github_report_repo_name: str,
         min_age_days: int,
     ):
-        self.token = token or None
+        self.token = token or ""
         self.release_name = release_name
         self.source_dir = source_dir
         self.message_templates_dir = message_templates_dir
         self.github_report_repo_name = github_report_repo_name
         self.min_age_days = min_age_days
-        self.gi = Github(self.token)
+        self.gi = Github(
+            auth=Auth.Token(self.token) if self.token else None,
+            retry=5,
+            seconds_between_requests=1,
+        )
 
     def get_labels(
         self, command, repository_type, build_status, dist_label, package_name
@@ -339,6 +342,7 @@ class NotifyIssueCli:
             if message_template_kwargs is not None:
                 for key, value in message_template_kwargs.items():
                     message = message.replace(key, value)
+                message = re.sub(r"\n{3,}", "\n\n", message)
 
             try:
                 issue = github_repo.create_issue(
@@ -528,7 +532,7 @@ class NotifyIssueCli:
                 )
                 previous_commit = None
             else:
-                previous_commit = state_file.read_text().strip()
+                previous_commit = state_file.read_text(encoding="utf-8").strip()
 
             if previous_commit is not None and repository_type in [
                 "stable",
@@ -544,10 +548,12 @@ class NotifyIssueCli:
                     delete_labels,
                 )
 
-            state_file.write_text(current_commit)
+            state_file.write_text(current_commit, encoding="utf-8")
 
             if stable_state_file.exists():
-                previous_stable_commit = stable_state_file.read_text().strip()
+                previous_stable_commit = stable_state_file.read_text(
+                    encoding="utf-8"
+                ).strip()
 
         if package_name.startswith("iso"):
             base_message = f"ISO for {self.release_name}"
@@ -598,7 +604,7 @@ class NotifyIssueCli:
                 report_message = f"{base_message} failed to {suffix_message}."
             if additional_info:
                 report_message = (
-                    f"{report_message.rstrip('.')} ({additional_info})."
+                    f"{report_message.rstrip('.')}:\n\n{additional_info}"
                 )
         else:
             raise NotifyIssueError(f"Unexpected build status '{build_status}'")
@@ -672,156 +678,3 @@ class NotifyIssueCli:
                 delete_labels,
                 github_repo=self.github_report_repo_name,
             )
-
-
-def add_required_args_to_parser(parser):
-    parser.add_argument("release_name", help="Release name (e.g. r4.2)")
-    parser.add_argument("source_dir", help="Component sources path")
-    parser.add_argument("package_name", help="Binary package name")
-    parser.add_argument(
-        "distribution",
-        help="Qubes OS Distribution name (e.g. host-fc32)",
-        type=QubesDistribution,
-    )
-    parser.add_argument(
-        "status",
-        help="Build status",
-        choices=["failed", "building", "built", "uploaded"],
-    )
-
-
-def parse_args():
-    epilog = "When state_file doesn't exists, no notify is sent, but the current state is recorded"
-
-    parser = ArgumentParser(epilog=epilog)
-    parser.add_argument(
-        "--auth-token", help="Github authentication token (OAuth2)"
-    )
-    parser.add_argument(
-        "--build-log", help="Build log name in build-logs repository"
-    )
-    parser.add_argument(
-        "--message-templates-dir", help="Message templates directory"
-    )
-    parser.add_argument(
-        "--github-report-repo-name", help="Github repository to report"
-    )
-    parser.add_argument(
-        "--additional-info", help="Add additional info on comment"
-    )
-    parser.add_argument(
-        "--days",
-        action="store",
-        type=int,
-        default=5,
-        help="ensure package at least this time in testing (default: %(default)d)",
-    )
-    subparsers = parser.add_subparsers(help="command")
-
-    # Upload status parser
-    upload_parser = subparsers.add_parser("upload")
-    upload_parser.set_defaults(command="upload")
-    # Common args
-    add_required_args_to_parser(upload_parser)
-    # Extra args
-    upload_parser.add_argument(
-        "repo_type",
-        help="Repository type",
-        choices=[
-            "current",
-            "current-testing",
-            "security-testing",
-            "unstable",
-            "templates-itl",
-            "templates-itl-testing",
-            "templates-community",
-            "templates-community-testing",
-            "iso-testing",
-        ],
-    )
-    upload_parser.add_argument(
-        "state_file",
-        help="File to store internal state (previous commit id)",
-        type=Path,
-    )
-    upload_parser.add_argument(
-        "stable_state_file",
-        help="File to store internal state (previous commit id of a stable aka current package)",
-        type=Path,
-    )
-    upload_parser.add_argument(
-        "--repository-url",
-        help="URL where is uploaded the package, template or ISO.",
-        default=None,
-    )
-
-    # Build status
-    build_parser = subparsers.add_parser("build")
-    build_parser.set_defaults(command="build")
-    # Common args
-    add_required_args_to_parser(build_parser)
-
-    return parser.parse_args()
-
-
-def main():
-    args = parse_args()
-
-    token = args.auth_token or os.environ.get("GITHUB_API_KEY")
-    github_report_repo_name = args.github_report_repo_name or os.environ.get(
-        "GITHUB_BUILD_REPORT_REPO"
-    )
-
-    if not token:
-        log.error("Please provide GITHUB_API_KEY either as CLI arg or environ.")
-        return 1
-
-    if not release_name_re.match(args.release_name):
-        log.error(f"Ignoring release {args.release_name}")
-        return 1
-
-    if not github_report_repo_name:
-        log.error(
-            "Please provide GITHUB_BUILD_REPORT_REPO either as CLI arg or environ."
-        )
-        return 1
-
-    message_templates_dir = (
-        Path(args.message_templates_dir).resolve()
-        if args.message_templates_dir
-        else Path("templates").resolve()
-    )
-    if not message_templates_dir.exists():
-        log.error("Cannot find message templates directory.")
-        return 1
-
-    try:
-        cli = NotifyIssueCli(
-            token=token,
-            release_name=args.release_name,
-            source_dir=Path(args.source_dir).resolve(),
-            github_report_repo_name=github_report_repo_name,
-            message_templates_dir=message_templates_dir,
-            min_age_days=args.days,
-        )
-
-        cli.run(
-            command=args.command,
-            dist=args.distribution,
-            package_name=args.package_name,
-            build_status=args.status,
-            additional_info=args.additional_info,
-            build_log=getattr(args, "build_log", None),
-            repository_type=getattr(args, "repo_type", None),
-            repository_url=getattr(args, "repository_url", None),
-            state_file=getattr(args, "state_file", None),
-            stable_state_file=getattr(args, "stable_state_file", None),
-        )
-
-    except NotifyIssueError as e:
-        log.error(str(e))
-        return 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())

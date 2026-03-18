@@ -1,7 +1,7 @@
 import datetime
 import os
-import subprocess
 
+from conftest import run_cmd
 from test_action import (
     _build_component_check,
     _upload_component_check,
@@ -33,7 +33,7 @@ def fix_scripts_dir(tmpdir, logfile, env=None):
 
     scripts_dir = tmpdir / "qubes-builder-github"
 
-    subprocess.run(
+    run_cmd(
         [
             f"gpg2 --export {TESTUSER_FPR} > {tmpdir}/trusted-keys-for-commands.gpg"
         ],
@@ -45,7 +45,7 @@ def fix_scripts_dir(tmpdir, logfile, env=None):
     builder_maintainers_keyring = tmpdir / "builder-maintainers-keyring"
     if not builder_maintainers_keyring.exists():
         builder_maintainers_keyring.mkdir()
-    subprocess.run(
+    run_cmd(
         [
             f"gpg2 --import {tmpdir}/qubes-builder-github/keys/9FA64B92F95E706BF28E2CA6484010B5CDC576E2.asc {tmpdir}/qubes-builder-github/keys/qubes-developers-keys.asc "
             f"&& echo '427F11FD0FAA4B080123F01CDDFA1A3E36879494:6:' | gpg --import-ownertrust "
@@ -94,8 +94,8 @@ def fix_scripts_dir(tmpdir, logfile, env=None):
 
         # wait for processes, set scripts dir and config file
         content = content.replace(
-            '"$scripts_dir/github-command.py"',
-            f'"$scripts_dir/github-command.py" '
+            '"$scripts_dir/github-command.py" dispatch',
+            f'"$scripts_dir/github-command.py" dispatch '
             f"--wait --scripts-dir {scripts_dir} "
             f'--config-file {tmpdir / "builders.list"} '
             f"--local-log-file {logfile} "
@@ -116,7 +116,7 @@ def fix_scripts_dir(tmpdir, logfile, env=None):
 def generate_signed_upload_component_command(
     env, repository="current", dist="all"
 ):
-    return subprocess.run(
+    return run_cmd(
         [
             f"echo Upload-component r4.2 app-linux-split-gpg c5316c91107b8930ab4dc3341bc75293139b5b84 {repository} {dist} | gpg2 --clearsign -u {TESTUSER_FPR}"
         ],
@@ -130,7 +130,7 @@ def generate_signed_upload_component_command(
 def generate_signed_build_template_command(env, timestamp=None):
     if not timestamp:
         timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
-    return subprocess.run(
+    return run_cmd(
         [
             f"echo Build-template r4.2 debian-12-minimal {timestamp} | gpg2 --clearsign -u {TESTUSER_FPR}"
         ],
@@ -146,7 +146,7 @@ def generate_signed_upload_template_command(
 ):
     if not timestamp:
         timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
-    return subprocess.run(
+    return run_cmd(
         [
             f"echo Upload-template r4.2 debian-12-minimal 4.2.0-{timestamp} {repository} | gpg2 --clearsign -u {TESTUSER_FPR}"
         ],
@@ -160,7 +160,7 @@ def generate_signed_upload_template_command(
 def generate_signed_build_iso_command(env, timestamp=None):
     if not timestamp:
         timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
-    return subprocess.run(
+    return run_cmd(
         [
             f"echo Build-iso r4.2 4.2.{timestamp} {timestamp} | gpg2 --clearsign -u {TESTUSER_FPR}"
         ],
@@ -172,7 +172,7 @@ def generate_signed_build_iso_command(env, timestamp=None):
 
 
 def _parse_command(tmpdir, env, signed_command):
-    subprocess.run(
+    run_cmd(
         [
             str(tmpdir / "qubes-builder-github/utils/parse-command"),
             str(tmpdir / "command"),
@@ -218,7 +218,7 @@ def test_rpc_04_trigger_build(workdir):
     # Adapt RPC for tests
     fix_scripts_dir(tmpdir, logfile=str(tmpdir / "trigger-build.log"), env=env)
 
-    subprocess.run(
+    run_cmd(
         [
             str(
                 tmpdir
@@ -232,7 +232,7 @@ def test_rpc_04_trigger_build(workdir):
     _build_component_check(tmpdir)
 
 
-def test_rpc_05_upload_component_command(workdir):
+def test_rpc_04_upload_component_command(workdir):
     tmpdir, env = workdir
 
     # Create builder list
@@ -245,7 +245,7 @@ def test_rpc_05_upload_component_command(workdir):
     signed_command = generate_signed_upload_component_command(
         env, repository="security-testing", dist="vm-bookworm"
     )
-    subprocess.run(
+    run_cmd(
         [
             str(
                 tmpdir
@@ -263,7 +263,7 @@ def test_rpc_05_upload_component_command(workdir):
 
     # create signed upload command for 'current' repository
     signed_command = generate_signed_upload_component_command(env)
-    subprocess.run(
+    run_cmd(
         [
             str(
                 tmpdir
@@ -280,7 +280,7 @@ def test_rpc_05_upload_component_command(workdir):
     _upload_component_check(tmpdir)
 
 
-def test_rpc_06_build_template_command(workdir):
+def test_rpc_05_build_template_command(workdir):
     tmpdir, env = workdir
 
     # Create builder list
@@ -290,7 +290,7 @@ def test_rpc_06_build_template_command(workdir):
     fix_scripts_dir(tmpdir, logfile=str(tmpdir / "build-command.log"), env=env)
 
     # fetch builder-debian, but do similarly as normally it would be done
-    subprocess.run(
+    run_cmd(
         [
             str(
                 tmpdir
@@ -307,7 +307,7 @@ def test_rpc_06_build_template_command(workdir):
     with open(tmpdir / "timestamp", "w") as f:
         f.write(timestamp)
     signed_command = generate_signed_build_template_command(env)
-    subprocess.run(
+    run_cmd(
         [
             str(
                 tmpdir
@@ -324,7 +324,7 @@ def test_rpc_06_build_template_command(workdir):
     _build_template_check(tmpdir)
 
 
-def test_rpc_07_upload_template_command(workdir):
+def test_rpc_05_upload_template_command(workdir):
     tmpdir, env = workdir
 
     # Create builder list
@@ -344,7 +344,7 @@ def test_rpc_07_upload_template_command(workdir):
     signed_command = generate_signed_upload_template_command(
         env, timestamp=timestamp
     )
-    subprocess.run(
+    run_cmd(
         [
             str(
                 tmpdir
@@ -361,7 +361,7 @@ def test_rpc_07_upload_template_command(workdir):
     _upload_template_check(tmpdir, timestamp)
 
 
-def test_rpc_08_build_iso_command(workdir):
+def test_rpc_06_build_iso_command(workdir):
     tmpdir, env = workdir
 
     # Create builder list
@@ -375,7 +375,7 @@ def test_rpc_08_build_iso_command(workdir):
     with open(tmpdir / "timestamp", "w") as f:
         f.write(timestamp)
     signed_command = generate_signed_build_iso_command(env)
-    subprocess.run(
+    run_cmd(
         [
             str(
                 tmpdir

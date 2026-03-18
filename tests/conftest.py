@@ -1,14 +1,16 @@
+import importlib.util
 import os
 import random
 import shutil
 import string
 import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 
 import pytest
 import yaml
-from github import Github
+from github import Github, Auth
 
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
@@ -35,6 +37,63 @@ def get_random_string(length):
     return result_str
 
 
+def load_module(name: str, path: Path):
+    """
+    Load a Python module from *path* by file, register it as *name*
+    in sys.modules, and return the module object.
+    """
+    spec = importlib.util.spec_from_file_location(name, str(path))
+    mod = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def load_qubesbuilder_module(tmpdir, name: str):
+    """
+    Load any qubesbuilder.* submodule from the cloned
+    qubes-builderv2 tree and return the module object.
+    """
+    qb_root = Path(tmpdir) / "qubes-builderv2"
+    if str(qb_root) not in sys.path:
+        sys.path.insert(0, str(qb_root))
+    return load_module(name, qb_root / (name.replace(".", "/") + ".py"))
+
+
+def make_distribution(distribution: str):
+    """
+    Return a QubesDistribution instance.
+    """
+    return sys.modules["qubesbuilder.distribution"].QubesDistribution(
+        distribution
+    )
+
+
+def make_config(builder_conf):
+    """
+    Return a Config instance.
+    """
+    return sys.modules["qubesbuilder.config"].Config(str(builder_conf))
+
+
+def load_action_module(env: dict, project_path: Path, monkeypatch):
+    """
+    Load githubbuilder/action.py as a fresh module instance with env applied.
+    """
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+    py_path = env.get("PYTHONPATH", "")
+    for entry in reversed([p for p in py_path.split(os.pathsep) if p]):
+        monkeypatch.syspath_prepend(entry)
+    monkeypatch.syspath_prepend(str(project_path))
+    mod = load_module(
+        "githubbuilder.action", project_path / "githubbuilder/action.py"
+    )
+    monkeypatch.setitem(sys.modules, "githubbuilder.action", mod)
+    return mod
+
+
 @pytest.fixture(scope="session")
 def token():
     github_api_key = os.environ.get("GITHUB_API_KEY")
@@ -45,7 +104,7 @@ def token():
 
 @pytest.fixture(scope="session")
 def github_repository(token):
-    g = Github(token)
+    g = Github(auth=Auth.Token(token))
     user = g.get_user()
     if user.login != "fepitre2-bot":
         raise ValueError(f"Unexpected user '{user}'.")
@@ -62,9 +121,9 @@ def base_workdir(tmpdir_factory):
 
     env = os.environ.copy()
     # Enforce keyring location
-    env["GNUPGHOME"] = tmpdir / ".gnupg"
+    env["GNUPGHOME"] = str(tmpdir / ".gnupg")
     # We prevent rpm to find ~/.rpmmacros and put logs into workdir
-    env["HOME"] = tmpdir
+    env["HOME"] = str(tmpdir)
 
     yield tmpdir, env
 
@@ -100,7 +159,7 @@ executor:
         )
 
     # Clone qubes-builderv2 (GitLab)
-    subprocess.run(
+    run_cmd(
         [
             "git",
             "-C",
@@ -118,12 +177,21 @@ executor:
         capture_output=True,
     )
 
+    # Load qubesbuilder and githubbuilder modules into sys.modules
+    load_qubesbuilder_module(tmpdir, "qubesbuilder.distribution")
+    load_qubesbuilder_module(tmpdir, "qubesbuilder.config")
+    load_module(
+        "githubbuilder.notify_issues",
+        PROJECT_PATH / "githubbuilder/notify_issues.py",
+    )
+
     # Enforce keyring location
-    env["GNUPGHOME"] = tmpdir / ".gnupg"
+    env["GNUPGHOME"] = str(tmpdir / ".gnupg")
     # Set PYTHONPATH with cloned qubes-builderv2
     env["PYTHONPATH"] = (
         f"{tmpdir / 'qubes-builderv2'!s}:{os.environ.get('PYTHONPATH','')}"
     )
+    env["PYTHONUNBUFFERED"] = "1"
 
     if env.get("CI_PROJECT_DIR", None):
         cache_dir = (Path(env["CI_PROJECT_DIR"]) / "cache").resolve()
@@ -152,3 +220,15 @@ def get_issue(issue_title, repository):
             issue = i
             break
     return issue
+
+
+def run_cmd(cmd, **kwargs):
+    try:
+        return subprocess.run(cmd, **kwargs)
+    except subprocess.CalledProcessError as e:
+        pytest.fail(
+            f"Command failed:\n{' '.join(e.cmd)}\n"
+            f"Return code: {e.returncode}\n"
+            f"STDOUT:\n{e.stdout}\n"
+            f"STDERR:\n{e.stderr}"
+        )

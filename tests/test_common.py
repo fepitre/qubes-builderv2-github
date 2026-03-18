@@ -3,13 +3,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+from conftest import run_cmd
+
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 
 
 def test_qubesbuilder_buildlog(workdir):
     tmpdir, env = workdir
     env["QREXEC_REMOTE_DOMAIN"] = "testvm"
-    p = subprocess.run(
+    p = run_cmd(
         [
             "python3",
             str(
@@ -29,7 +31,7 @@ def test_qubesbuilder_buildlog(workdir):
     sys.path.insert(0, str(tmpdir / "qubes-builderv2"))
 
     github_action_spec = importlib.util.spec_from_file_location(
-        "github_action", str(PROJECT_PATH / "github-action.py")
+        "githubbuilder.action", str(PROJECT_PATH / "githubbuilder/action.py")
     )
     github_action = importlib.util.module_from_spec(github_action_spec)
     github_action_spec.loader.exec_module(github_action)

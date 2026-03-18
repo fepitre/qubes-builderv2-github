@@ -51,4 +51,4 @@ esac
 
 printf 'Build-component %s' "$untrusted_component_name" > "$tmpdir/component"
 
-"$scripts_dir/github-command.py" --no-signer-github-command-check Build-component "$tmpdir/component"
+"$scripts_dir/github-command.py" dispatch --no-signer-github-command-check Build-component "$tmpdir/component"

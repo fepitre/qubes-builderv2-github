@@ -33,7 +33,7 @@ def log(msg, remote=True, now=None):
     tmp_log.write(line.encode("utf-8"))
 
 
-stdin = sys.stdin.buffer  # python3
+stdin = sys.stdin.buffer
 start = datetime.datetime.now(datetime.UTC)
 tmp_log = tempfile.NamedTemporaryFile(prefix="qubes-build-log_", delete=False)
 incoming_log_dir = f"{os.getenv('HOME', '/')}/QubesIncomingBuildLog"
@@ -57,7 +57,6 @@ while True:
     untrusted_line = stdin.readline()
     if untrusted_line == b"":
         break
-
     log(sanitize_line(untrusted_line.rstrip(b"\n")))
 
 log("closing log", remote=False)
@@ -79,10 +78,7 @@ file_name = file_name_base
 while True:
     if try_no > 0:
         file_name = "{}.{}".format(file_name_base, try_no)
-
     try:
-        # check both compressed and uncompressed files availability, continue
-        # only if both are unused at the same time
         fd = os.open(file_name, os.O_CREAT | os.O_EXCL, 0o664)
         fd2 = os.open(file_name + ".xz", os.O_CREAT | os.O_EXCL, 0o664)
     except OSError as err:
@@ -90,7 +86,6 @@ while True:
             try_no += 1
             continue
         raise
-
     os.close(fd)
     os.close(fd2)
     break
@@ -106,14 +101,12 @@ if os.path.getsize(file_name) > XZ_THRESHOLD:
 else:
     os.unlink(file_name + ".xz")
 
-# report actually used file name to the build domain
+# report the saved file name back to the build VM
 print(os.path.relpath(file_name, incoming_log_dir))
 
-# at the end execute post-log-hook if exists, for possible log uploading
+# call post-log-hook if present (e.g. to upload logs to a web-accessible location)
 hook_path = f"{incoming_log_dir}/post-log-hook"
 if os.path.exists(hook_path):
-    # connect I/O to /dev/null, as we're running as qrexec service, so that
-    # would be sent to the remote domain
     subprocess.check_call(
         [hook_path, file_name],
         stdout=open(os.devnull, "w"),

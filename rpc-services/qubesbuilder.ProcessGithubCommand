@@ -41,23 +41,26 @@ read_stdin_command_and_verify_signature "$scripts_dir" "$keyring_path" "${tmpdir
 read -r action args < "$tmpdir/command"
 
 case "$action" in
-#    Build-component)
-#        "$scripts_dir/github-command.py" dispatch --log-basename "${log_basename}" log_basename --signer-fpr "$command_signer" Build-component "$tmpdir/command"
-#        ;;
+    Build-component)
+        qb github dispatch --wait --log-file "${log_basename}.log" --signer-fpr "$command_signer" Build-component "$tmpdir/command"
+        ;;
     Upload-component)
-        "$scripts_dir/github-command.py" dispatch --log-basename "${log_basename}" --signer-fpr "$command_signer" Upload-component "$tmpdir/command"
+        qb github dispatch --wait --log-file "${log_basename}.log" --signer-fpr "$command_signer" Upload-component "$tmpdir/command"
         ;;
     Build-template)
-        "$scripts_dir/github-command.py" dispatch --log-basename "${log_basename}" --signer-fpr "$command_signer" Build-template "$tmpdir/command"
+        qb github dispatch --wait --log-file "${log_basename}.log" --signer-fpr "$command_signer" Build-template "$tmpdir/command"
         ;;
     Upload-template)
-        "$scripts_dir/github-command.py" dispatch --log-basename "${log_basename}" --signer-fpr "$command_signer" Upload-template "$tmpdir/command"
+        qb github dispatch --wait --log-file "${log_basename}.log" --signer-fpr "$command_signer" Upload-template "$tmpdir/command"
         ;;
     Build-iso)
-        "$scripts_dir/github-command.py" dispatch --log-basename "${log_basename}" --signer-fpr "$command_signer" Build-iso "$tmpdir/command"
+        qb github dispatch --wait --log-file "${log_basename}.log" --signer-fpr "$command_signer" Build-iso "$tmpdir/command"
         ;;
     *)
         echo "Unknown command $action" >&2
         exit 1
         ;;
 esac
+
+# deliver completed log to dom0 via qrexec for archiving / post-log-hook
+qrexec-client-vm dom0 qubesbuilder.BuildLog < "${log_basename}.log" || true

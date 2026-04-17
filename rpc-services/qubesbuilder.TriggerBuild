@@ -51,4 +51,7 @@ esac
 
 printf 'Build-component %s' "$untrusted_component_name" > "$tmpdir/component"
 
-"$scripts_dir/github-command.py" dispatch --no-signer-github-command-check Build-component "$tmpdir/component"
+qb github dispatch --wait --log-file "${log_basename}.log" --no-signer-github-command-check Build-component "$tmpdir/component"
+
+# deliver completed log to dom0 via qrexec for archiving / post-log-hook
+qrexec-client-vm dom0 qubesbuilder.BuildLog < "${log_basename}.log" || true

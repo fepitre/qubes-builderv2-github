@@ -69,22 +69,6 @@ def load_qubesbuilder_module(tmpdir, name: str):
     return load_module(name, qb_root / (name.replace(".", "/") + ".py"))
 
 
-def make_distribution(distribution: str):
-    """
-    Return a QubesDistribution instance.
-    """
-    return sys.modules["qubesbuilder.distribution"].QubesDistribution(
-        distribution
-    )
-
-
-def make_config(builder_conf):
-    """
-    Return a Config instance.
-    """
-    return sys.modules["qubesbuilder.config"].Config(str(builder_conf))
-
-
 def load_action_module(env: dict, project_path: Path, monkeypatch):
     """
     Load githubbuilder/action.py as a fresh module instance with env applied.
@@ -102,6 +86,16 @@ def load_action_module(env: dict, project_path: Path, monkeypatch):
     return mod
 
 
+def load_notify_issues_module():
+    """
+    Load githubbuilder/notify_issues.py as a module object.
+    """
+    return load_module(
+        "githubbuilder.notify_issues",
+        PROJECT_PATH / "githubbuilder/notify_issues.py",
+    )
+
+
 def load_command_report_module():
     """
     Load githubbuilder/command_report.py as a module object.
@@ -110,6 +104,22 @@ def load_command_report_module():
         "githubbuilder.command_report",
         PROJECT_PATH / "githubbuilder/command_report.py",
     )
+
+
+def make_distribution(distribution: str):
+    """
+    Return a QubesDistribution instance.
+    """
+    return sys.modules["qubesbuilder.distribution"].QubesDistribution(
+        distribution
+    )
+
+
+def make_config(builder_conf):
+    """
+    Return a Config instance.
+    """
+    return sys.modules["qubesbuilder.config"].Config(str(builder_conf))
 
 
 @pytest.fixture(scope="session")
@@ -211,10 +221,7 @@ executor:
     # Load qubesbuilder and githubbuilder modules into sys.modules
     load_qubesbuilder_module(tmpdir, "qubesbuilder.distribution")
     load_qubesbuilder_module(tmpdir, "qubesbuilder.config")
-    load_module(
-        "githubbuilder.notify_issues",
-        PROJECT_PATH / "githubbuilder/notify_issues.py",
-    )
+    load_notify_issues_module()
 
     # Enforce keyring location
     env["GNUPGHOME"] = str(tmpdir / ".gnupg")

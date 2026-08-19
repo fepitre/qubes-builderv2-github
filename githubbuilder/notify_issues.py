@@ -154,7 +154,7 @@ class NotifyIssueCli:
             ],
             stdout=subprocess.PIPE,
         )
-        (b_current_commit, _) = git_proc.communicate()
+        b_current_commit, _ = git_proc.communicate()
         current_commit = b_current_commit.decode().strip()
         return current_commit
 
@@ -179,7 +179,7 @@ class NotifyIssueCli:
             ],
             stdout=subprocess.PIPE,
         )
-        (version_tags, _) = git_proc.communicate()
+        version_tags, _ = git_proc.communicate()
         versions = version_tags.decode().splitlines()
         if not versions:
             raise ValueError("No version tags found")
@@ -200,7 +200,7 @@ class NotifyIssueCli:
                 ],
                 stdout=subprocess.PIPE,
             )
-            (version_tags, _) = git_proc.communicate()
+            version_tags, _ = git_proc.communicate()
             if not version_tags:
                 # if no tag there, point at the commit directly
                 version_tags = previous_current_commit.encode()
@@ -218,7 +218,7 @@ class NotifyIssueCli:
                 ],
                 stdout=subprocess.PIPE,
             )
-            (version_tags, _) = git_proc.communicate()
+            version_tags, _ = git_proc.communicate()
         if not version_tags:
             # if no previous version tag, check from (some) root commit
             git_proc = subprocess.Popen(
@@ -232,7 +232,7 @@ class NotifyIssueCli:
                 ],
                 stdout=subprocess.PIPE,
             )
-            (version_tags, _) = git_proc.communicate()
+            version_tags, _ = git_proc.communicate()
 
         if not version_tags:
             # still nothing - looks there is only one commit - no history
@@ -250,7 +250,7 @@ class NotifyIssueCli:
             stdout=subprocess.PIPE,
         )
 
-        (b_git_log, _) = git_log_proc.communicate()
+        b_git_log, _ = git_log_proc.communicate()
         git_log = b_git_log.decode()
         referenced_issues = []
         for line in git_log.splitlines():
@@ -279,7 +279,7 @@ class NotifyIssueCli:
             ],
             stdout=subprocess.PIPE,
         )
-        (b_shortlog, _) = git_log_proc.communicate()
+        b_shortlog, _ = git_log_proc.communicate()
         shortlog = b_shortlog.decode()
 
         return version, previous_version, shortlog, referenced_issues_txt
@@ -426,7 +426,7 @@ class NotifyIssueCli:
             ],
             stdout=subprocess.PIPE,
         )
-        (b_git_log, _) = git_log_proc.communicate()
+        b_git_log, _ = git_log_proc.communicate()
         closed_issues = []
         for line in b_git_log.decode().splitlines():
             match = fixes_re.search(line)
@@ -453,7 +453,7 @@ class NotifyIssueCli:
             ],
             stdout=subprocess.PIPE,
         )
-        (b_shortlog, _) = git_log_proc.communicate()
+        b_shortlog, _ = git_log_proc.communicate()
         shortlog = b_shortlog.decode()
 
         git_url_var = "GIT_URL_" + self.source_dir.name.replace("-", "_")

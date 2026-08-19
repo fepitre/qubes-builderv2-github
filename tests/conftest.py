@@ -94,6 +94,16 @@ def load_action_module(env: dict, project_path: Path, monkeypatch):
     return mod
 
 
+def load_command_report_module():
+    """
+    Load githubbuilder/command_report.py as a module object.
+    """
+    return load_module(
+        "githubbuilder.command_report",
+        PROJECT_PATH / "githubbuilder/command_report.py",
+    )
+
+
 @pytest.fixture(scope="session")
 def token():
     github_api_key = os.environ.get("GITHUB_API_KEY")
@@ -141,9 +151,7 @@ def workdir(base_workdir):
     # Copy builder.yml
     shutil.copy2(DEFAULT_BUILDER_CONF, tmpdir)
 
-    with open(f"{tmpdir}/builder.yml", "a") as f:
-        f.write(
-            f"""
+    extra_conf = f"""
 artifacts-dir: {tmpdir}/artifacts
 
 repository-upload-remote-host:
@@ -156,7 +164,8 @@ executor:
   options:
     dispvm: "builder-dvm"
 """
-        )
+    with open(f"{tmpdir}/builder.yml", "a") as f:
+        f.write(extra_conf)
 
     # Clone qubes-builderv2 (GitLab)
     run_cmd(
@@ -199,6 +208,30 @@ executor:
             shutil.copytree(cache_dir, tmpdir / "artifacts/cache")
 
     yield tmpdir, env
+
+
+def make_fake_qrexec(bin_dir, capture_dir):
+    """
+    Create a fake qrexec-client-vm capturing its stdin and service name,
+    replying like qubesbuilder.BuildLog does.
+    """
+    bin_dir = Path(bin_dir)
+    capture_dir = Path(capture_dir)
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    capture_dir.mkdir(parents=True, exist_ok=True)
+    fake = bin_dir / "qrexec-client-vm"
+    fake.write_text(
+        "#!/bin/sh\n"
+        f'cat > "{capture_dir}/upload.$$"\n'
+        f'echo "$2" > "{capture_dir}/service.$$"\n'
+        'echo "test-vm/log_2026-01-01_00-00-00"\n'
+    )
+    fake.chmod(0o755)
+    return fake
+
+
+def get_fake_qrexec_uploads(capture_dir):
+    return sorted(Path(capture_dir).glob("upload.*"))
 
 
 def set_conf_options(builder_conf, options):

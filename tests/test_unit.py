@@ -3,7 +3,11 @@ from pathlib import Path
 
 import yaml
 
-from conftest import load_action_module, make_config
+from conftest import (
+    load_action_module,
+    load_command_report_module,
+    make_config,
+)
 
 
 def test_format_additional_info_base_only(workdir, monkeypatch):
@@ -225,3 +229,15 @@ def test_action_component_build_skipped_already_released(workdir, monkeypatch):
     for result in action.results.values():
         assert result.status == "skipped"
         assert "current" in (result.reason or "")
+
+
+def test_report_parse_build_log_path_valid():
+    mod = load_command_report_module()
+    out = "test-vm/log_2026-01-01_00-00-00\n"
+    assert mod.parse_build_log_path(out) == "test-vm/log_2026-01-01_00-00-00"
+
+
+def test_report_parse_build_log_path_empty():
+    mod = load_command_report_module()
+    assert mod.parse_build_log_path("") is None
+    assert mod.parse_build_log_path("no log path here") is None

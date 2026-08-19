@@ -112,7 +112,10 @@ test-rpc-component:
 test-rpc-template:
   extends: .pytest
   variables:
-    PYTEST_TARGETS: "tests/test_rpc.py -k test_rpc_05"
+    PYTEST_TARGETS: >-
+      tests/test_rpc.py::test_rpc_05_build_template_command
+      tests/test_rpc.py::test_rpc_05_upload_template_command
+      tests/test_rpc.py::test_rpc_07_stale_timestamp_uploads_log
 
 test-rpc-iso:
   extends: .pytest
@@ -123,6 +126,11 @@ test-command:
   extends: .pytest
   variables:
     PYTEST_TARGETS: "tests/test_command.py"
+
+test-command-report:
+  extends: .pytest
+  variables:
+    PYTEST_TARGETS: "tests/test_command_report.py"
 
 test-notify:
   extends: .pytest

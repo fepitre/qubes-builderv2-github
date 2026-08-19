@@ -24,8 +24,10 @@
 
 import logging
 import os
+import random
 import re
 import subprocess
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -312,6 +314,16 @@ class NotifyIssueCli:
             if not create:
                 return None
 
+            # several builder instances may try to create the same issue at
+            # once: wait a random time and look again, so most of them find
+            # the issue created by the fastest one
+            time.sleep(random.uniform(0, 10))
+            for issue in github_repo.get_issues():
+                if issue.title == issue_title:
+                    issue_no = issue.number
+                    break
+
+        if issue_no is None:
             if component.startswith("qubes-template"):
                 message_template_path = (
                     self.message_templates_dir / "message-build-report-template"

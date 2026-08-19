@@ -112,7 +112,7 @@ def test_action_template_build_timestamp_skip(workdir, monkeypatch):
     # Write a build artifact with a newer timestamp than what we'll request
     artifacts_templates = Path(str(tmpdir)) / "artifacts" / "templates"
     artifacts_templates.mkdir(parents=True, exist_ok=True)
-    ts_file = artifacts_templates / "debian-12-minimal.build.yml"
+    ts_file = artifacts_templates / "debian-13-minimal.build.yml"
     ts_file.write_text(
         yaml.dump({"timestamp": newer_ts.strftime("%Y%m%d%H%M")})
     )
@@ -122,7 +122,7 @@ def test_action_template_build_timestamp_skip(workdir, monkeypatch):
         cli = mod.AutoActionTemplate(
             builder_dir=tmpdir / "qubes-builderv2",
             config=config,
-            template_name="debian-12-minimal",
+            template_name="debian-13-minimal",
             template_timestamp=older_ts.strftime("%Y%m%d%H%M"),
             state_dir=tmpdir / "github-notify-state-ts-skip",
             commit_sha=None,

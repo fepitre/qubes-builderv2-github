@@ -104,7 +104,7 @@ def test_report_01_unknown_component_failed_comment(
     conf = setup_report_conf(tmpdir, token, github_repository)
 
     commit_sha = "c5316c91107b8930ab4dc3341bc75293139b5b84"
-    command_text = f"Upload-component r4.3 no-such-component {commit_sha} security-testing vm-bookworm"
+    command_text = f"Upload-component r4.3 no-such-component {commit_sha} security-testing vm-trixie"
 
     result = run_dispatch(
         tmpdir, env, "Upload-component", command_text, FEPITRE_FPR
@@ -126,7 +126,7 @@ def test_report_02_refused_comment(token, github_repository, workdir):
     conf = setup_report_conf(tmpdir, token, github_repository)
 
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
-    command_text = f"Build-template r4.3 debian-12-minimal {timestamp}"
+    command_text = f"Build-template r4.3 debian-13-minimal {timestamp}"
 
     result = run_dispatch(
         tmpdir, env, "Build-template", command_text, NOBODY_FPR
@@ -139,7 +139,7 @@ def test_report_02_refused_comment(token, github_repository, workdir):
     comments = get_comments(issue, expected=1)
     assert len(comments) == 1
     assert f"**refused** by `r4.3` (`{conf}`)" in comments[0].body
-    assert "not allowed to handle template `debian-12-minimal`" in (
+    assert "not allowed to handle template `debian-13-minimal`" in (
         comments[0].body
     )
 
@@ -152,13 +152,13 @@ def test_report_03_handled_comment(token, github_repository, workdir):
     command_timestamp = (now - datetime.timedelta(minutes=30)).strftime(
         "%Y%m%d%H%M"
     )
-    command_text = f"Build-template r4.3 debian-12 {command_timestamp}"
+    command_text = f"Build-template r4.3 debian-13 {command_timestamp}"
 
     # a newer existing build artifact makes the template build skip
     # without an executor, the action still completes as handled
     artifacts_templates = Path(tmpdir) / "artifacts" / "templates"
     artifacts_templates.mkdir(parents=True, exist_ok=True)
-    ts_file = artifacts_templates / "debian-12.build.yml"
+    ts_file = artifacts_templates / "debian-13.build.yml"
     ts_file.write_text(yaml.dump({"timestamp": now.strftime("%Y%m%d%H%M")}))
 
     try:

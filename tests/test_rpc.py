@@ -130,7 +130,7 @@ def generate_signed_upload_component_command(
 
 
 def generate_signed_build_template_command(
-    env, timestamp=None, template="debian-12-minimal", release="r4.2"
+    env, timestamp=None, template="debian-13-minimal", release="r4.2"
 ):
     if not timestamp:
         timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
@@ -159,7 +159,7 @@ def generate_signed_build_template_command_sequoia(env, tmpdir, timestamp=None):
     )
     return subprocess.run(
         [
-            f"echo Build-template r4.2 debian-12-minimal {timestamp} | sq sign --cleartext --signer-file {key_file}"
+            f"echo Build-template r4.2 debian-13-minimal {timestamp} | sq sign --cleartext --signer-file {key_file}"
         ],
         shell=True,
         check=True,
@@ -175,7 +175,7 @@ def generate_signed_upload_template_command(
         timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M")
     return run_cmd(
         [
-            f"echo Upload-template r4.2 debian-12-minimal 4.2.0-{timestamp} {repository} | gpg2 --clearsign -u {TESTUSER_FPR}"
+            f"echo Upload-template r4.2 debian-13-minimal 4.2.0-{timestamp} {repository} | gpg2 --clearsign -u {TESTUSER_FPR}"
         ],
         shell=True,
         check=True,
@@ -276,7 +276,7 @@ def test_rpc_04_upload_component_command(workdir):
 
     # create signed upload command for 'security-testing' repository
     signed_command = generate_signed_upload_component_command(
-        env, repository="security-testing", dist="vm-bookworm"
+        env, repository="security-testing", dist="vm-trixie"
     )
     run_cmd(
         [
@@ -484,7 +484,7 @@ def test_rpc_08_bad_signature_uploads_nothing(workdir):
     signed_command = generate_signed_build_template_command(env, release="r4.3")
     # tamper with the signed payload to invalidate the signature
     tampered_command = signed_command.replace(
-        b"debian-12-minimal", b"debian-13-minimal"
+        b"debian-13-minimal", b"debian-14-minimal"
     )
     assert tampered_command != signed_command
 

@@ -35,7 +35,7 @@ def find_github_action(processes, cmdline):
     return found
 
 
-def create_builders_list(directory, release="r4.2"):
+def create_builders_list(directory, release="r4.3"):
     builders = [
         (release, f"{directory}/qubes-builderv2", f"{directory}/builder.yml")
     ]
@@ -94,7 +94,7 @@ def test_command_01_upload_component(workdir):
     # Write command
     with open(f"{tmpdir}/command", "w") as f:
         f.write(
-            f"Upload-component r4.2 app-linux-split-gpg {commit_sha} current all"
+            f"Upload-component r4.3 app-linux-split-gpg {commit_sha} current all"
         )
 
     # Dry-run
@@ -116,7 +116,7 @@ def test_command_01_upload_component(workdir):
     all_processes = get_all_processes()
     for b in builders_list:
         release, builder_dir, builder_conf = b
-        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-command.py action --signer-fpr {FEPITRE_FPR} --command-title 'Upload-component r4.2 app-linux-split-gpg {commit_sha} current all' --release-name {release} upload-component {builder_dir} {builder_conf} app-linux-split-gpg {commit_sha} current --distribution all"
+        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-command.py action --signer-fpr {FEPITRE_FPR} --command-title 'Upload-component r4.3 app-linux-split-gpg {commit_sha} current all' --release-name {release} upload-component {builder_dir} {builder_conf} app-linux-split-gpg {commit_sha} current --distribution all"
         if not find_github_action(all_processes, cmdline):
             raise ValueError(f"{cmdline}: cannot find process.")
     command_process.communicate()
@@ -136,7 +136,7 @@ def test_command_02_build_template(workdir):
 
     # Write command
     with open(f"{tmpdir}/command", "w") as f:
-        f.write(f"Build-template r4.2 debian-12 {timestamp}")
+        f.write(f"Build-template r4.3 debian-13 {timestamp}")
 
     # Dry-run
     set_dry_run(f"{tmpdir}/builder.yml")
@@ -157,7 +157,7 @@ def test_command_02_build_template(workdir):
     all_processes = get_all_processes()
     for b in builders_list:
         release, builder_dir, builder_conf = b
-        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-command.py action --signer-fpr {FEPITRE_FPR} --command-title 'Build-template r4.2 debian-12 {timestamp}' --release-name {release} build-template {builder_dir} {builder_conf} debian-12 {timestamp}"
+        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-command.py action --signer-fpr {FEPITRE_FPR} --command-title 'Build-template r4.3 debian-13 {timestamp}' --release-name {release} build-template {builder_dir} {builder_conf} debian-13 {timestamp}"
         if not find_github_action(all_processes, cmdline):
             raise ValueError(f"{cmdline}: cannot find process.")
     command_process.communicate()
@@ -177,7 +177,7 @@ def test_command_03_upload_template(workdir):
     # Write command
     with open(f"{tmpdir}/command", "w") as f:
         f.write(
-            f"Upload-template r4.2 debian-12 4.2.0-{timestamp} templates-itl"
+            f"Upload-template r4.3 debian-13 4.3.0-{timestamp} templates-itl"
         )
 
     # Dry-run
@@ -199,7 +199,7 @@ def test_command_03_upload_template(workdir):
     all_processes = get_all_processes()
     for b in builders_list:
         release, builder_dir, builder_conf = b
-        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-command.py action --signer-fpr {FEPITRE_FPR} --command-title 'Upload-template r4.2 debian-12 4.2.0-{timestamp} templates-itl' --release-name {release} upload-template {builder_dir} {builder_conf} debian-12 4.2.0-{timestamp} templates-itl"
+        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-command.py action --signer-fpr {FEPITRE_FPR} --command-title 'Upload-template r4.3 debian-13 4.3.0-{timestamp} templates-itl' --release-name {release} upload-template {builder_dir} {builder_conf} debian-13 4.3.0-{timestamp} templates-itl"
         if not find_github_action(all_processes, cmdline):
             raise ValueError(f"{cmdline}: cannot find process.")
     command_process.communicate()
@@ -219,7 +219,7 @@ def test_command_04_build_iso(workdir):
 
     # Write command
     with open(f"{tmpdir}/command", "w") as f:
-        f.write(f"Build-iso r4.2 4.2.{timestamp} {timestamp}")
+        f.write(f"Build-iso r4.3 4.3.{timestamp} {timestamp}")
 
     # Dry-run
     set_dry_run(f"{tmpdir}/builder.yml")
@@ -240,7 +240,7 @@ def test_command_04_build_iso(workdir):
     all_processes = get_all_processes()
     for b in builders_list:
         release, builder_dir, builder_conf = b
-        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-command.py action --signer-fpr {FEPITRE_FPR} --command-title 'Build-iso r4.2 4.2.{timestamp} {timestamp}' --release-name {release} build-iso {builder_dir} {builder_conf} 4.2.{timestamp} {timestamp}"
+        cmdline = f"flock -x {builder_dir}/builder.lock bash -c {tmpdir / 'qubes-builder-github'}/github-command.py action --signer-fpr {FEPITRE_FPR} --command-title 'Build-iso r4.3 4.3.{timestamp} {timestamp}' --release-name {release} build-iso {builder_dir} {builder_conf} 4.3.{timestamp} {timestamp}"
         if not find_github_action(all_processes, cmdline):
             raise ValueError(f"{cmdline}: cannot find process.")
     command_process.communicate()
@@ -330,7 +330,7 @@ def test_command_07_unknown_component_fails(workdir):
     # Write command
     with open(f"{tmpdir}/command", "w") as f:
         f.write(
-            f"Upload-component r4.3 no-such-component {commit_sha} security-testing vm-bookworm"
+            f"Upload-component r4.3 no-such-component {commit_sha} security-testing vm-trixie"
         )
 
     command_log = Path(tmpdir) / "unknown-component.log"

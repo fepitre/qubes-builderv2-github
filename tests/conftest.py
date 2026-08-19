@@ -5,6 +5,7 @@ import shutil
 import string
 import subprocess
 import sys
+import time
 from copy import deepcopy
 from pathlib import Path
 
@@ -14,6 +15,13 @@ from github import Github, Auth
 
 PROJECT_PATH = Path(__file__).resolve().parents[1]
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder.yml"
+
+_keyboard_interrupted = False
+
+
+def pytest_keyboard_interrupt(excinfo):
+    global _keyboard_interrupted
+    _keyboard_interrupted = True
 
 
 # qubesbuilder/config
@@ -120,8 +128,22 @@ def github_repository(token):
         raise ValueError(f"Unexpected user '{user}'.")
     repo_name = f"tests-{get_random_string(16)}"
     repo = user.create_repo(repo_name)
-    yield repo
-    repo.delete()
+    try:
+        yield repo
+    finally:
+        # optional inspection window before the repo goes away, skipped on
+        # keyboard interrupt
+        inspect_seconds = int(os.environ.get("TESTS_INSPECT_SECONDS", "0"))
+        if inspect_seconds > 0 and not _keyboard_interrupted:
+            print(
+                f"\nInspect {repo.html_url} (deleting in {inspect_seconds} seconds)",
+                flush=True,
+            )
+            try:
+                time.sleep(inspect_seconds)
+            except KeyboardInterrupt:
+                pass
+        repo.delete()
 
 
 @pytest.fixture(scope="session")
@@ -246,13 +268,15 @@ def set_dry_run(builder_conf):
     set_conf_options(builder_conf, {"github": {"dry-run": True}})
 
 
-def get_issue(issue_title, repository):
-    issue = None
-    for i in repository.get_issues():
-        if i.title == issue_title:
-            issue = i
-            break
-    return issue
+def get_issue(issue_title, repository, retries=3, delay=5):
+    # the issues listing can lag behind a just-created issue
+    for attempt in range(retries):
+        if attempt:
+            time.sleep(delay)
+        for i in repository.get_issues():
+            if i.title == issue_title:
+                return i
+    return None
 
 
 def run_cmd(cmd, **kwargs):
